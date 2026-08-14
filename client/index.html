@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1"
+    />
+    <meta name="theme-color" content="#fafaf9" />
+    <meta
+      name="description"
+      content="Drishti preserves answer-booklet evidence, scan clarity, marking decisions, and moderated outcomes in one verifiable examination record."
+    />
+    <meta property="og:title" content="Drishti — Forensic Answer Evaluation" />
+    <meta
+      property="og:description"
+      content="Verifiable examination records from scan intake through moderated evaluation."
+    />
+    <meta property="og:type" content="website" />
+    <title>Drishti — Forensic Answer Evaluation</title>
+  </head>
+
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    <script type="module">
+      const endpoint = import.meta.env.VITE_ANALYTICS_ENDPOINT;
+      const websiteId = import.meta.env.VITE_ANALYTICS_WEBSITE_ID;
+      if (endpoint && websiteId) {
+        const script = document.createElement("script");
+        script.defer = true;
+        script.src = `${endpoint.replace(/\/$/, "")}/umami`;
+        script.dataset.websiteId = websiteId;
+        document.body.appendChild(script);
+      }
+    </script>
+  </body>
+</html>

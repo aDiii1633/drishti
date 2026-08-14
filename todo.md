@@ -1,0 +1,53 @@
+# Project TODO
+
+- [x] Define the Drishti forensic design system, dashboard navigation model, and accessibility baseline.
+- [x] Define relational tables for bundles, documents, page checks, marking schemes, evaluations, deviations, audit events, and AI generations.
+- [x] Add dedicated document-artifact records and verify their relationship to each bundle.
+- [x] Persist replacement-page artifacts and expose bundle-document integrity checks.
+- [x] Add automated coverage for bundle-document artifact relationships.
+- [x] Add integration-level coverage for stored document artifact creation and retrieval by bundle.
+- [x] Exercise router-backed document persistence and retrieval-by-bundle in automated tests.
+- [x] Implement four role gates: operator, evaluator, moderator, and admin, including a 12-hour role-selected session.
+- [x] Enforce server-side permissions, including complete exclusion of non-admin roles from the data console.
+- [x] Build the forensic landing page with hero, animated workflow pipeline, and CountUp metrics.
+- [x] Build the role-badge login screen with no password inputs.
+- [x] Build upload intake for question papers and answer booklets, page-level variance-of-Laplacian clarity classification, page replacement, and finalized bundle output.
+- [x] Persist uploaded source and final PDF artifacts through managed object storage.
+- [x] Build ScanIntake progress states with multi-page clarity indicators and batch progress readout.
+- [x] Build the split-pane marking workspace, page-view tracking, human marks, AI marks, and per-question feedback.
+- [x] Persist cumulative per-question page-view history from the marking workspace.
+- [x] Implement AI grading with a ScaleMax-compatible structured output, retry behavior, question-level clamping, and explicit fallback status.
+- [x] Enforce denominator precedence: printed paper maximum, operator-confirmed total, then catalog total with coverage_complete false.
+- [x] Raise deviations when the human and AI marks differ by 3 or more and support moderated outcomes.
+- [x] Build audit, history, answers, evaluations, settings, and queue/dashboard views.
+- [x] Implement QR-style bundle verification and an AI second-reader `/ai-read` bundle flow.
+- [x] Build the admin-only data console and protected route behavior.
+- [x] Add automated tests for role permissions, score clamping, deviation threshold, and denominator order.
+- [x] Add procedure-level permission tests for the administrator console and moderation routes.
+- [x] Add an explicit unauthorized-role test for the deviation-resolution procedure.
+- [x] Verify build, tests, desktop/mobile interface rendering, and all completed checklist states before delivery.
+- [x] Capture protected-route access behavior across role-gated dashboard sections at desktop and mobile sizes.
+- [x] Complete a final checklist-to-evidence review covering build, tests, route behavior, and key workflow safeguards.
+- [x] Perform a manual authenticated visual acceptance pass for all four role sessions and the administrator data console.
+- [x] Diagnose and fix the failing AI evaluation action, including the AI second-reader flow.
+- [x] Add regression coverage for a successful persisted AI evaluation response and clear failure reporting.
+- [x] Accept object-form grade maps returned by the live model and cover them with tests.
+- [x] Add mocked persistence coverage for primary and second-reader AI evaluation results plus actionable failure detail.
+- [x] Exercise the authorized primary and second-reader evaluation paths with live-model response-shape smoke testing and persisted-reader regression coverage.
+- [x] Exercise the authorized `marking.aiGrade` router and `/api/v1/ai-read` endpoint end to end with a verified persisted result.
+- [x] Run a clean-room live PDF grading acceptance check through real persistence, then remove its temporary evidence record.
+- [x] Verify that the temporary clean-room bundle, scheme, evaluation, generation, and deviation rows were removed after acceptance testing.
+- [x] Replace teacher-facing marking-scheme setup with a simplified question-and-marks marking workflow.
+- [x] Configure ScaleMax through secure project secrets and validate the selected model’s OpenAI-compatible API behavior.
+- [x] Keep the Manus built-in PDF reader as the documented default while ScaleMax document Q&A remains unverified, and expose provider status clearly.
+- [x] Render every uploaded PDF page into an in-app evidence gallery and make all booklet pages reviewable in the marking workspace.
+- [x] Fix page-analysis progress so each PDF is inspected through its final page and every result is surfaced as CLEAR or BLURRY.
+- [x] Add a maintainable CBSE Class XII subject and marking-guidance reference layer based on official public materials.
+- [x] Add an in-app Class XII subject reference list with official curriculum and SQP/MS links for core subjects.
+- [x] Evaluate a practical calibration workflow for varied blurry/clear scan examples without representing it as a trained proprietary vision model.
+- [x] Implement a labelled clarity-calibration review that records threshold performance rather than claiming model training.
+- [x] Refresh the forensic hero and interface motion while preserving accessible reduced-motion behavior.
+- [x] Add regression tests for PDF page coverage, visibility, simplified marking, and the ScaleMax transport path.
+- [x] Ensure client PDF coverage tests execute and add regression checks for teacher question setup and rendered-page evidence behavior.
+- [x] Add a regression test for ordered rendered-page evidence cards with preview data and clarity labels.
+- [x] Validate the supplied Manus-compatible fallback key without exposing it; it was not authorized, so the verified built-in document reader remains the active fallback until a valid replacement is provided.

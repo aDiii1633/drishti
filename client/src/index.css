@@ -1,0 +1,211 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700;800&display=swap");
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Instrument Serif", Georgia, serif;
+  --font-mono: "DM Mono", ui-monospace, monospace;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--foreground);
+  --color-primary: var(--ink);
+  --color-primary-foreground: #ffffff;
+  --color-muted: var(--sand);
+  --color-muted-foreground: var(--muted);
+  --color-border: var(--hairline);
+  --color-ring: var(--gold);
+}
+
+:root {
+  --background: #fafaf9;
+  --foreground: #1c1917;
+  --ink: #292522;
+  --muted: #78716c;
+  --sand: #f2f0eb;
+  --card: #ffffff;
+  --hairline: #e7e4df;
+  --gold: #e6c075;
+  --gold-ink: #7c5e10;
+  --clear: #16803d;
+  --clear-bg: #dff5e7;
+  --blur: #c0392b;
+  --blur-bg: #fae2df;
+  --amber: #92610a;
+  --amber-bg: #f9efd8;
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+* {
+  box-sizing: border-box;
+}
+html {
+  background: var(--background);
+  scroll-behavior: smooth;
+}
+body {
+  margin: 0;
+  min-width: 320px;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: "Inter", sans-serif;
+}
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+button {
+  cursor: pointer;
+}
+
+.font-display {
+  font-family: "Instrument Serif", Georgia, serif;
+}
+.font-display-italic {
+  font-family: "Instrument Serif", Georgia, serif;
+  font-style: italic;
+}
+.mono-label {
+  font-family: "DM Mono", monospace;
+  font-size: 10px;
+  line-height: 1.2;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+/* Teacher-facing workspaces favor legibility over dashboard density. */
+.teacher-readable {
+  font-size: 1rem;
+}
+.teacher-readable :where(p, label, li) {
+  font-weight: 500;
+}
+.teacher-readable :where(button, input, select, textarea, a) {
+  font-weight: 600;
+}
+.teacher-readable .mono-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+}
+.teacher-readable .text-xs {
+  font-size: 0.8125rem;
+  line-height: 1.55;
+}
+.teacher-readable .text-sm {
+  font-size: 0.9375rem;
+  line-height: 1.6;
+}
+.grain::after {
+  content: "";
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 160 160' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.9'/%3E%3C/svg%3E");
+}
+.dot-grid {
+  background-image: radial-gradient(#d9d4cb 0.75px, transparent 0.75px);
+  background-size: 16px 16px;
+}
+.panel {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--hairline);
+  box-shadow: 0 10px 30px rgba(45, 38, 26, 0.045);
+}
+.scan-line {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--gold), transparent);
+  box-shadow: 0 0 10px rgba(230, 192, 117, 0.75);
+}
+.press {
+  transition:
+    transform 160ms var(--ease-out),
+    background-color 160ms var(--ease-out),
+    border-color 160ms var(--ease-out);
+}
+.press:active {
+  transform: scale(0.97);
+}
+.nav-link {
+  color: var(--muted);
+  transition: color 160ms var(--ease-out);
+}
+.nav-link:hover,
+.nav-link[data-active="true"] {
+  color: var(--foreground);
+}
+.forensic-border {
+  position: relative;
+}
+.forensic-border::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  background: linear-gradient(
+    135deg,
+    rgba(230, 192, 117, 0.9),
+    rgba(230, 192, 117, 0.05),
+    rgba(230, 192, 117, 0.42)
+  );
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+}
+.role-card {
+  transition:
+    transform 180ms var(--ease-out),
+    box-shadow 180ms var(--ease-out),
+    border-color 180ms var(--ease-out);
+}
+.role-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(230, 192, 117, 0.95);
+  box-shadow: 0 17px 34px rgba(76, 59, 25, 0.1);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .float-soft {
+    animation: float-soft 7s ease-in-out infinite;
+  }
+  .beam {
+    animation: beam 2.8s var(--ease-out) infinite;
+  }
+  .pulse-dot {
+    animation: pulse-dot 2s ease-in-out infinite;
+  }
+}
+@keyframes float-soft {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+@keyframes beam {
+  0% {
+    transform: translateX(-120%);
+  }
+  55%,
+  100% {
+    transform: translateX(220%);
+  }
+}
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
