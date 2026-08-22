@@ -2,14 +2,26 @@ import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/libsql";
 import { InsertUser, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
+import { isDemoMode } from "./runtimeMode";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
+function configuredDatabaseUrl() {
+  if (isDemoMode()) {
+    const demoUrl = process.env.DEMO_DATABASE_URL?.trim();
+    if (!demoUrl)
+      throw new Error("Demo mode requires DEMO_DATABASE_URL. Real DATABASE_URL is never reused for demo data.");
+    return demoUrl;
+  }
+  return process.env.DATABASE_URL?.trim();
+}
+
 // Lazily create the drizzle instance so local tooling can run without a DB.
 export async function getDb() {
-  if (!_db && process.env.DATABASE_URL) {
+  const url = configuredDatabaseUrl();
+  if (!_db && url) {
     try {
-      _db = drizzle(process.env.DATABASE_URL);
+      _db = drizzle(url);
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);
       _db = null;
@@ -88,4 +100,11 @@ export async function getUserByOpenId(openId: string) {
   const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
 
   return result.length > 0 ? result[0] : undefined;
+}
+
+export async function getUserById(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(users).where(eq(users.id, id)).limit(1);
+  return result[0];
 }

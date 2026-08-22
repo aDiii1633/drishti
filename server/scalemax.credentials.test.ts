@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 describe("ScaleMax credentials", () => {
-  it("authorizes a lightweight models request with the configured server secret", async () => {
+  const credentialsCheck = process.env.SCALEMAX_BASE_URL && process.env.SCALEMAX_API_KEY ? it : it.skip;
+  credentialsCheck("authorizes a lightweight models request with the configured server secret", async () => {
     const baseUrl = process.env.SCALEMAX_BASE_URL?.replace(/\/$/, "");
     const apiKey = process.env.SCALEMAX_API_KEY;
     expect(baseUrl).toBeTruthy();

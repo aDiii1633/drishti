@@ -23,6 +23,7 @@ import {
   resolveScaleMaxDocumentModel,
 } from "./scalemax";
 import { storageGetBuffer, storageGetSignedUrl } from "./storage";
+import { openRouterStructuredJson } from "./aiGrading";
 
 type Grade = {
   questionId: string;
@@ -151,7 +152,6 @@ export async function extractSchemeFromPdf(input: {
   questions: SchemeQuestion[];
   questionCount: number;
 }> {
-  const model = (await resolveScaleMaxDocumentModel()).selected;
   const systemPrompt =
     "You are Drishti's marking-scheme transcriber. You read a printed examination question paper and transcribe ONLY what is printed. Never summarize, skip, or merge questions. Never invent a question or a mark value that is not printed on the paper. If a question's marks are not printed directly beside it, derive the mark from an explicit section-header rule (for example 'Q1-Q20 carry 1 mark each'); never guess a number that has no textual basis in the paper.";
   const userPrompt = `Read the attached question paper PDF in full and transcribe every printed question.
@@ -167,56 +167,54 @@ Also report the paper's printed "Maximum Marks" header total if one is stated (e
 Return ONLY this JSON shape, with no extra commentary:
 {"paperTitle":"","printedMaximumMarks":0,"questions":[{"id":"Q1","label":"","maximumMarks":1,"keyPoints":[]}]}`;
 
-  let parsed: any;
+  let parsed: unknown;
   try {
-    // ScaleMax-compatible gateways expect PDF bytes inlined as a data: URL under
-    // a "file" content part (the OpenAI Chat Completions convention) - a
-    // "file_url" pointing at this app's own local storage is silently dropped
-    // (confirmed by direct testing: every model replied "I don't see any
-    // attached document" even though the URL was independently fetchable,
-    // since it's only reachable from this machine, not from ScaleMax's servers).
-    const response = await invokeScaleMaxDocument({
-      model,
-      messages: [
-        { role: "system", content: systemPrompt },
-        {
-          role: "user",
-          content: [
-            { type: "text", text: userPrompt },
-            {
-              type: "file",
-              file: {
-                filename: input.filename,
-                file_data: `data:application/pdf;base64,${input.pdfBase64}`,
+    const response = await openRouterStructuredJson({
+      schemaName: "question_paper_scheme",
+      schema: {
+        type: "object",
+        additionalProperties: false,
+        required: ["paperTitle", "printedMaximumMarks", "questions"],
+        properties: {
+          paperTitle: { type: "string" },
+          printedMaximumMarks: { type: ["integer", "null"], minimum: 0 },
+          questions: {
+            type: "array",
+            minItems: 1,
+            items: {
+              type: "object",
+              additionalProperties: false,
+              required: ["id", "label", "maximumMarks", "keyPoints"],
+              properties: {
+                id: { type: "string" },
+                label: { type: "string" },
+                maximumMarks: { type: "integer", minimum: 1 },
+                keyPoints: { type: "array", items: { type: "string" } },
               },
             },
-          ],
+          },
+        },
+      },
+      system: systemPrompt,
+      userContent: [
+        { type: "text", text: `${userPrompt}\n\nSource filename: ${input.filename}` },
+        {
+          type: "file",
+          file: {
+            filename: input.filename,
+            file_data: `data:application/pdf;base64,${input.pdfBase64}`,
+          },
         },
       ],
-      response_format: { type: "json_object" },
-      max_tokens: 8000,
+      maxOutputTokens: 8_000,
     });
-    parsed = parseModelJson(extractContent(response));
-    if (process.env.DEBUG_SCHEME_EXTRACT)
-      console.error(
-        "[DEBUG_SCHEME_EXTRACT] model:",
-        model,
-        "parsed:",
-        JSON.stringify(parsed).slice(0, 4000)
-      );
-  } catch (error) {
-    if (process.env.DEBUG_SCHEME_EXTRACT)
-      console.error("[DEBUG_SCHEME_EXTRACT] model:", model, "error:", error);
-    const detail =
-      error instanceof Error
-        ? error.message
-        : "Unknown model or document error.";
-    throw new Error(
-      `Could not read this question paper with AI extraction. ${detail}`
-    );
+    parsed = response.value;
+  } catch {
+    throw new Error("AI could not read this question paper. Check that the PDF is legible or create the marking setup manually.");
   }
 
-  const rawQuestions = validateExtractedSchemePayload(parsed);
+  const extracted = parsed && typeof parsed === "object" ? parsed as Record<string, unknown> : {};
+  const rawQuestions = validateExtractedSchemePayload(extracted);
   const seenIds = new Map<string, number>();
   const questions: SchemeQuestion[] = [];
   rawQuestions.forEach((raw: unknown, index: number) => {
@@ -263,7 +261,7 @@ Return ONLY this JSON shape, with no extra commentary:
     (sum, question) => sum + question.maximumMarks,
     0
   );
-  const printedTotalRaw = Number(parsed?.printedMaximumMarks);
+  const printedTotalRaw = Number(extracted.printedMaximumMarks);
   const printedMaximumMarks =
     Number.isFinite(printedTotalRaw) && printedTotalRaw > 0
       ? Math.round(printedTotalRaw)
@@ -283,7 +281,7 @@ Return ONLY this JSON shape, with no extra commentary:
         : (printedMaximumMarks ?? 0);
 
   const paperTitle =
-    typeof parsed?.paperTitle === "string" ? parsed.paperTitle.trim() : "";
+    typeof extracted.paperTitle === "string" ? extracted.paperTitle.trim() : "";
 
   return {
     paperTitle,
@@ -336,7 +334,7 @@ export function validateExtractedSchemePayload(payload: unknown): unknown[] {
 
   if (attachmentRefusal) {
     throw new Error(
-      "The AI reader did not receive the question-paper PDF. The existing marking setup was kept unchanged; retry with Opus or Sonnet once the document route is available."
+      "AI did not receive the question-paper PDF. The existing marking setup was kept unchanged; retry or create the marking setup manually."
     );
   }
   if (!questions.length) {
@@ -420,10 +418,18 @@ export function gradeFailureDetail(error: unknown) {
     : "Unknown model or document error.";
 }
 
+function rejectRetiredBulkGrading(): void {
+  throw new Error("Bulk AI grading is retired. Use question-level AI evaluation from the checking workspace.");
+}
+
 export async function runScaleMaxGrade(input: {
   bundleId: string;
   mode: "primary" | "second-reader";
 }) {
+  // Bulk grading is intentionally retired. The evaluator route performs
+  // question-scoped evidence preparation and grading instead.
+  rejectRetiredBulkGrading();
+
   const db = await getDb();
   if (!db) throw new Error("The Drishti database is unavailable.");
   const bundle = (

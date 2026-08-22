@@ -11,14 +11,14 @@ export default function Evaluations() {
   );
   return (
     <div className="teacher-readable mx-auto max-w-6xl">
-      <p className="mono-label text-[#7c5e10]">Scoring register</p>
+      <p className="mono-label text-[#2f6f95]">Scoring register</p>
       <h1 className="mt-2 font-display text-5xl">
         Compare teacher and AI marks.
       </h1>
       <select
         value={bundleId}
         onChange={event => setBundleId(event.target.value)}
-        className="mt-7 h-11 min-w-72 rounded-xl border border-[#e7e4df] bg-white px-3 text-sm"
+        className="mt-7 h-11 w-full max-w-sm rounded-xl border border-[#d9eaf3] bg-white px-3 text-sm"
       >
         <option value="">Choose a bundle</option>
         {bundles.data?.map(bundle => (
@@ -28,8 +28,8 @@ export default function Evaluations() {
         ))}
       </select>
       {detail.data && (
-        <div className="panel mt-7 overflow-hidden rounded-3xl">
-          <div className="grid grid-cols-[1.2fr_.5fr_.5fr_.8fr] gap-3 border-b border-[#e7e4df] px-5 py-4 mono-label text-[#a8a29e]">
+        <div className="panel mt-7 overflow-x-auto rounded-3xl">
+          <div className="grid min-w-[560px] grid-cols-[1.2fr_.5fr_.5fr_.8fr] gap-3 border-b border-[#d9eaf3] px-5 py-4 mono-label text-[#7f9aaa]">
             <span>Question</span>
             <span>
               <Bot size={13} className="inline" /> AI
@@ -48,11 +48,11 @@ export default function Evaluations() {
               return (
                 <div
                   key={row.id}
-                  className="grid grid-cols-[1.2fr_.5fr_.5fr_.8fr] gap-3 border-b border-[#eeeae4] px-5 py-4 text-sm"
+                  className="grid min-w-[560px] grid-cols-[1.2fr_.5fr_.5fr_.8fr] gap-3 border-b border-[#e3f0f6] px-5 py-4 text-sm"
                 >
                   <div>
                     <p className="font-semibold">{row.questionLabel}</p>
-                    <p className="mt-1 text-xs text-[#78716c]">
+                    <p className="mt-1 text-xs text-[#6b8190]">
                       Maximum {row.schemeMaximum}
                     </p>
                   </div>
@@ -61,8 +61,8 @@ export default function Evaluations() {
                   <span
                     className={
                       delta >= 3
-                        ? "font-semibold text-[#c0392b]"
-                        : "text-[#16803d]"
+                        ? "font-semibold text-[#b64c40]"
+                        : "text-[#2f7898]"
                     }
                   >
                     {delta >= 3 ? `${delta} mark deviation` : "aligned"}
@@ -71,7 +71,7 @@ export default function Evaluations() {
               );
             })
           ) : (
-            <div className="p-10 text-center text-sm text-[#78716c]">
+            <div className="p-10 text-center text-sm text-[#6b8190]">
               No evaluations have been written for this bundle.
             </div>
           )}

@@ -2,53 +2,82 @@
 @import "tailwindcss";
 
 @theme inline {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Instrument Serif", Georgia, serif;
-  --font-mono: "DM Mono", ui-monospace, monospace;
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--foreground);
-  --color-primary: var(--ink);
+  --font-sans: var(--font-ui);
+  --font-display: var(--font-display-family);
+  --font-mono: var(--font-meta);
+  --color-background: var(--color-background);
+  --color-foreground: var(--color-text);
+  --color-card: var(--color-surface);
+  --color-card-foreground: var(--color-text);
+  --color-primary: var(--color-primary);
   --color-primary-foreground: #ffffff;
-  --color-muted: var(--sand);
-  --color-muted-foreground: var(--muted);
-  --color-border: var(--hairline);
-  --color-ring: var(--gold);
+  --color-muted: var(--color-surface-subtle);
+  --color-muted-foreground: var(--color-text-muted);
+  --color-border: var(--color-border);
+  --color-ring: var(--color-primary);
 }
 
 :root {
-  --background: #fafaf9;
-  --foreground: #1c1917;
-  --ink: #292522;
-  --muted: #78716c;
-  --sand: #f2f0eb;
-  --card: #ffffff;
-  --hairline: #e7e4df;
-  --gold: #e6c075;
-  --gold-ink: #7c5e10;
-  --clear: #16803d;
-  --clear-bg: #dff5e7;
-  --blur: #c0392b;
-  --blur-bg: #fae2df;
-  --amber: #92610a;
-  --amber-bg: #f9efd8;
+  --font-ui: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display-family: "Instrument Serif", Georgia, serif;
+  --font-meta: "DM Mono", ui-monospace, monospace;
+  --font-size-display: 3rem;
+  --font-size-page: 2rem;
+  --font-size-section: 1.25rem;
+  --font-size-body: 0.9375rem;
+  --font-size-meta: 0.6875rem;
+  --line-tight: 1.08;
+  --line-body: 1.55;
+  --color-background: #f8fbfd;
+  --color-surface: #ffffff;
+  --color-surface-subtle: #eef6fa;
+  --color-primary: #176d98;
+  --color-primary-strong: #104f70;
+  --color-primary-soft: #e1f1f8;
+  --color-border: #d6e6ee;
+  --color-text: #183244;
+  --color-text-muted: #657d8c;
+  --color-success: #237a68;
+  --color-success-soft: #e6f5f1;
+  --color-warning: #94680c;
+  --color-warning-soft: #fff5dc;
+  --color-danger: #b44f45;
+  --color-danger-soft: #fff0ee;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --radius-control: 0.5rem;
+  --radius-card: 0.5rem;
+  --shadow-card: 0 8px 24px rgba(23, 72, 99, 0.06);
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --workspace-sidebar-width: 15.5rem;
+  --workspace-sidebar-collapsed-width: 4.75rem;
+  --workspace-toolbar-size: 2.25rem;
 }
 
 * {
   box-sizing: border-box;
 }
 html {
-  background: var(--background);
+  background: var(--color-background);
   scroll-behavior: smooth;
 }
 body {
   margin: 0;
   min-width: 320px;
-  background: var(--background);
-  color: var(--foreground);
-  font-family: "Inter", sans-serif;
+  background: var(--color-background);
+  color: var(--color-text);
+  font-family: var(--font-ui);
+  font-size: var(--font-size-body);
+  line-height: var(--line-body);
+  overflow-x: hidden;
+}
+
+#root {
+  min-height: 100dvh;
 }
 button,
 input,
@@ -59,20 +88,44 @@ select {
 button {
   cursor: pointer;
 }
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+:where(input, textarea, select) {
+  border-color: var(--color-border);
+  border-radius: var(--radius-control);
+  color: var(--color-text);
+  transition:
+    border-color 160ms var(--ease-out),
+    box-shadow 160ms var(--ease-out);
+}
+
+:where(input, textarea, select):focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(23, 109, 152, 0.12);
+}
 
 .font-display {
-  font-family: "Instrument Serif", Georgia, serif;
+  font-family: var(--font-display-family);
+  font-weight: 400;
+  line-height: var(--line-tight);
 }
 .font-display-italic {
-  font-family: "Instrument Serif", Georgia, serif;
+  font-family: var(--font-display-family);
   font-style: italic;
 }
 .mono-label {
-  font-family: "DM Mono", monospace;
-  font-size: 10px;
-  line-height: 1.2;
+  font-family: var(--font-meta);
+  font-size: var(--font-size-meta);
+  line-height: 1.3;
   font-weight: 500;
-  letter-spacing: 0.18em;
+  letter-spacing: 0;
   text-transform: uppercase;
 }
 
@@ -89,7 +142,7 @@ button {
 .teacher-readable .mono-label {
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.13em;
+  letter-spacing: 0;
 }
 .teacher-readable .text-xs {
   font-size: 0.8125rem;
@@ -109,18 +162,19 @@ button {
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 160 160' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.9'/%3E%3C/svg%3E");
 }
 .dot-grid {
-  background-image: radial-gradient(#d9d4cb 0.75px, transparent 0.75px);
+  background-image: radial-gradient(#d6e6ee 0.75px, transparent 0.75px);
   background-size: 16px 16px;
 }
 .panel {
-  background: rgba(255, 255, 255, 0.92);
-  border: 1px solid var(--hairline);
-  box-shadow: 0 10px 30px rgba(45, 38, 26, 0.045);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
 }
 .scan-line {
   height: 1px;
-  background: linear-gradient(90deg, transparent, var(--gold), transparent);
-  box-shadow: 0 0 10px rgba(230, 192, 117, 0.75);
+  background: var(--color-primary-soft);
+  box-shadow: none;
 }
 .press {
   transition:
@@ -148,12 +202,7 @@ button {
   inset: 0;
   padding: 1px;
   border-radius: inherit;
-  background: linear-gradient(
-    135deg,
-    rgba(230, 192, 117, 0.9),
-    rgba(230, 192, 117, 0.05),
-    rgba(230, 192, 117, 0.42)
-  );
+  background: var(--color-primary);
   mask:
     linear-gradient(#fff 0 0) content-box,
     linear-gradient(#fff 0 0);
@@ -167,9 +216,22 @@ button {
     border-color 180ms var(--ease-out);
 }
 .role-card:hover {
-  transform: translateY(-3px);
-  border-color: rgba(230, 192, 117, 0.95);
-  box-shadow: 0 17px 34px rgba(76, 59, 25, 0.1);
+  transform: translateY(-2px);
+  border-color: var(--color-primary);
+  box-shadow: 0 12px 28px rgba(23, 72, 99, 0.1);
+}
+.workspace-rail {
+  background: var(--color-surface);
+  border-color: var(--color-border);
+}
+.workspace-sidebar {
+  background: var(--color-surface);
+  border-color: var(--color-border);
+}
+.workspace-active {
+  background: var(--color-primary-soft);
+  color: var(--color-primary-strong);
+  box-shadow: inset 3px 0 0 var(--color-primary);
 }
 @media (prefers-reduced-motion: no-preference) {
   .float-soft {

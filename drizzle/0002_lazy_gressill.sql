@@ -1,0 +1,1 @@
+ALTER TABLE `bundles` ADD `createdByUserId` integer;

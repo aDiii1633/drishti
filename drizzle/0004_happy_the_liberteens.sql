@@ -1,0 +1,1 @@
+ALTER TABLE `examSessions` ADD `recheckStatus` text DEFAULT 'closed' NOT NULL;

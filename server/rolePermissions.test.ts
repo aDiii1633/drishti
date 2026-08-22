@@ -23,13 +23,23 @@ describe("Drishti procedure permissions", () => {
     await expect(caller.deviations.list()).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
+  it("denies the operational admin dashboard to an evaluator role", async () => {
+    const caller = appRouter.createCaller(context("evaluator"));
+    await expect(caller.dashboard.adminOverview()).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  it("denies evaluator profile data to a non-evaluator role", async () => {
+    const caller = appRouter.createCaller(context("operator"));
+    await expect(caller.evaluator.profile()).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
   it("denies an evaluator role from resolving a deviation", async () => {
     const caller = appRouter.createCaller(context("evaluator"));
     await expect(caller.deviations.resolve({ id: "deviation-1", status: "upheld", note: "Unauthorized attempt" })).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
-  it("denies the intake mutation to a moderator role", async () => {
-    const caller = appRouter.createCaller(context("moderator"));
+  it("denies the intake mutation to a student role", async () => {
+    const caller = appRouter.createCaller(context("student"));
     await expect(caller.bundles.create({
       candidateName: "Candidate 1", subject: "Subject", catalogTotal: 80, questionPaper: { name: "paper.pdf", base64: "data:application/pdf;base64,AA==" }, booklet: { name: "booklet.pdf", base64: "data:application/pdf;base64,AA==" }, pages: [{ pageNumber: 1, clarity: "CLEAR", laplacianVariance: 200, reason: "clear" }],
     })).rejects.toMatchObject({ code: "FORBIDDEN" });

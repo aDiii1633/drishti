@@ -4,11 +4,14 @@ import { createServer } from "http";
 import net from "net";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth";
+import { ENV } from "./env";
 import { registerStorageProxy } from "./storageProxy";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { registerDrishtiApi } from "../apiV1";
 import { serveStatic, setupVite } from "./vite";
+import { ensureDemoData } from "../demoData";
+import { assertProductionRuntime, getAppMode } from "../runtimeMode";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -30,13 +33,19 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 }
 
 async function startServer() {
+  assertProductionRuntime();
+  console.log(`DRISHTI runtime mode: ${getAppMode()}`);
+  const demo = await ensureDemoData();
+  if (demo.enabled) {
+    console.log(`Demo mode ${demo.seeded ? "ready" : "waiting for database"}.`);
+  }
   const app = express();
   const server = createServer(app);
   // Configure body parser with larger size limit for file uploads
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
   registerStorageProxy(app);
-  registerOAuthRoutes(app);
+  if (ENV.oAuthServerUrl) registerOAuthRoutes(app);
   registerDrishtiApi(app);
   // tRPC API
   app.use(

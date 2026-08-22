@@ -1,19 +1,10 @@
 import type { Express } from "express";
-import { and, eq, ne } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { bundles } from "../drizzle/schema";
 import { getDb } from "./db";
-import { persistAIGrades } from "./gradeEngine";
-import { tokenFromRequest, verifyRoleSession } from "./roleAuth";
 import { z } from "zod";
 
-const tokenInput = z
-  .string()
-  .min(10)
-  .max(160)
-  .regex(/^[A-Za-z0-9_-]+$/);
-const secondReaderInput = z
-  .object({ bundleId: z.string().trim().min(1).max(128) })
-  .strict();
+const tokenInput = z.string().min(10).max(160).regex(/^[A-Za-z0-9_-]+$/);
 
 export function registerDrishtiApi(app: Express) {
   app.get("/api/v1/health", async (_req, res) => {
@@ -34,28 +25,16 @@ export function registerDrishtiApi(app: Express) {
         });
     }
   });
-  app.get("/api/v1/scalemax/status", async (_req, res) => {
-    const scaleMaxReady = Boolean(
-      process.env.SCALEMAX_BASE_URL && process.env.SCALEMAX_API_KEY
-    );
-    const builtInReady = Boolean(
-      process.env.BUILT_IN_FORGE_API_URL && process.env.BUILT_IN_FORGE_API_KEY
-    );
-    const documentFileQaEnabled =
-      process.env.SCALEMAX_DOCUMENT_FILE_QA === "true";
+  app.get("/api/v1/ai/status", async (_req, res) => {
+    const openRouterReady = Boolean(process.env.OPENROUTER_API_KEY && process.env.OPENROUTER_MODEL);
     res.set("Cache-Control", "no-store");
     return res.json({
-      provider: scaleMaxReady
-        ? "ScaleMax-compatible"
-        : "Manus built-in document reader",
-      ready: scaleMaxReady || builtInReady,
-      scaleMaxReady,
-      builtInReady,
-      documentFileQaEnabled,
-      documentReader:
-        documentFileQaEnabled && scaleMaxReady ? "ScaleMax" : "Manus built-in",
+      provider: "openrouter",
+      model: "qwen/qwen2.5-vl-72b-instruct:free",
+      ready: openRouterReady,
+      modelConfigured: Boolean(process.env.OPENROUTER_MODEL),
       retries: 2,
-      denominatorPolicy: ["paper", "operator", "catalog"],
+      evaluationMode: "question-first-vision",
     });
   });
   app.get("/api/v1/qr/verify/:token", async (req, res) => {
@@ -103,55 +82,6 @@ export function registerDrishtiApi(app: Express) {
         .json({
           verified: false,
           message: "Verification is temporarily unavailable.",
-        });
-    }
-  });
-  app.post("/api/v1/ai-read", async (req, res) => {
-    const session = await verifyRoleSession(tokenFromRequest(req.headers));
-    if (!session)
-      return res
-        .status(401)
-        .json({ error: "A valid Drishti role session is required." });
-    if (!["evaluator", "moderator", "admin"].includes(session.role))
-      return res
-        .status(403)
-        .json({
-          error:
-            "AI second reader is restricted to evaluation and moderation desks.",
-        });
-    const parsed = secondReaderInput.safeParse(req.body);
-    if (!parsed.success)
-      return res
-        .status(400)
-        .json({
-          error:
-            parsed.error.issues[0]?.message ?? "A valid bundleId is required.",
-        });
-    try {
-      const outcome = await persistAIGrades({
-        bundleId: parsed.data.bundleId,
-        mode: "second-reader",
-      });
-      const db = await getDb();
-      if (db)
-        await db
-          .update(bundles)
-          .set({ status: "review" })
-          .where(
-            and(
-              eq(bundles.id, parsed.data.bundleId),
-              ne(bundles.status, "finalized")
-            )
-          );
-      return res.json({ reader: "second", ...outcome });
-    } catch (error) {
-      return res
-        .status(422)
-        .json({
-          error:
-            error instanceof Error
-              ? error.message
-              : "Second-reader request failed.",
         });
     }
   });

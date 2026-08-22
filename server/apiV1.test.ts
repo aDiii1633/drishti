@@ -56,6 +56,31 @@ describe("Drishti REST API contracts", () => {
     });
   });
 
+  it("reports OpenRouter grading readiness without exposing the server key", async () => {
+    const previousKey = process.env.OPENROUTER_API_KEY;
+    const previousModel = process.env.OPENROUTER_MODEL;
+    process.env.OPENROUTER_API_KEY = "server-only-test-key";
+    process.env.OPENROUTER_MODEL = "qwen/qwen2.5-vl-72b-instruct:free";
+    try {
+      const { res, response } = responseRecorder();
+      await registeredHandlers()["GET /api/v1/ai/status"]({}, res);
+      expect(response).toMatchObject({
+        code: 200,
+        body: {
+          provider: "openrouter",
+          model: "qwen/qwen2.5-vl-72b-instruct:free",
+          ready: true,
+        },
+      });
+      expect(JSON.stringify(response.body)).not.toContain("server-only-test-key");
+    } finally {
+      if (previousKey === undefined) delete process.env.OPENROUTER_API_KEY;
+      else process.env.OPENROUTER_API_KEY = previousKey;
+      if (previousModel === undefined) delete process.env.OPENROUTER_MODEL;
+      else process.env.OPENROUTER_MODEL = previousModel;
+    }
+  });
+
   it("returns stable JSON for invalid and temporarily unavailable verification requests", async () => {
     const handlers = registeredHandlers();
     const invalid = responseRecorder();

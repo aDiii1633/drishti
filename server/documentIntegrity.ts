@@ -1,6 +1,14 @@
-export type ArtifactType = "questionPaper" | "answerBooklet" | "replacementPage" | "finalPdf";
+export type ArtifactType =
+  | "questionPaper"
+  | "answerBooklet"
+  | "scanOriginal"
+  | "replacementPage"
+  | "finalPdf";
 
-export function bundleDocumentIntegrity(types: Iterable<ArtifactType>, needsFinalPdf: boolean) {
+export function bundleDocumentIntegrity(
+  types: Iterable<ArtifactType>,
+  needsFinalPdf: boolean
+) {
   const present = new Set(types);
   return {
     hasQuestionPaper: present.has("questionPaper"),

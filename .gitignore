@@ -9,10 +9,9 @@ build/
 
 # Environment variables
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.*
+!.env.example
+!.env.*.example
 
 # IDE and editor files
 .vscode/
@@ -33,6 +32,7 @@ Thumbs.db
 # Logs
 logs
 .manus-logs/
+.playwright-cli/
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -49,6 +49,8 @@ pids
 
 # Coverage directory used by tools like istanbul
 coverage/
+test-results/
+playwright-report/
 *.lcov
 
 # nyc test coverage
@@ -101,12 +103,26 @@ jspm_packages/
 # Temporary folders
 tmp/
 temp/
+artifacts/
+annotation-final-persisted.png
 
 # Database
 *.db
 *.sqlite
 *.sqlite3
 local-data/
+
+# Credentials and certificates
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+credentials.json
+service-account*.json
+*-service-account.json
+secret.*
+secrets.*
 
 # Local filesystem storage backend (replaces Manus Forge/S3 in this environment)
 local-storage/

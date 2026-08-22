@@ -1,10 +1,125 @@
 import { trpc } from "@/lib/trpc";
-import { ArrowRight, CircleAlert, ClipboardCheck, FileStack, Gavel, ScanLine } from "lucide-react";
-import { Link } from "wouter";
+import {
+  Building2,
+  ClipboardCheck,
+  FileCheck2,
+  FileStack,
+  ScanLine,
+  Users,
+} from "lucide-react";
 
-function Stat({ label, value, hint, accent = false }: { label: string; value: number | undefined; hint: string; accent?: boolean }) { return <div className={`panel rounded-2xl p-5 ${accent ? "forensic-border" : ""}`}><p className="mono-label text-[#a8a29e]">{label}</p><p className="mt-4 font-display text-5xl">{value ?? "—"}</p><p className="mt-2 text-xs text-[#78716c]">{hint}</p></div>; }
+function Stat({
+  label,
+  value,
+  hint,
+  icon: Icon,
+  accent = false,
+}: {
+  label: string;
+  value: number | undefined;
+  hint: string;
+  icon: typeof Building2;
+  accent?: boolean;
+}) {
+  return (
+    <div className={`panel rounded-2xl p-5 ${accent ? "forensic-border" : ""}`}>
+      <Icon size={17} className="text-[#2f6f95]" />
+      <p className="mono-label text-[#7f9aaa]">{label}</p>
+      <p className="mt-4 font-display text-5xl">{value ?? "—"}</p>
+      <p className="mt-2 text-xs text-[#6b8190]">{hint}</p>
+    </div>
+  );
+}
 
 export default function Dashboard() {
-  const summary = trpc.dashboard.summary.useQuery(); const bundles = trpc.bundles.list.useQuery();
-  return <div className="mx-auto max-w-6xl"><div className="flex flex-wrap items-end justify-between gap-5"><div><p className="mono-label text-[#7c5e10]">Command desk</p><h1 className="mt-2 font-display text-5xl">The examination record, at a glance.</h1></div><Link href="/dashboard/scan" className="press flex items-center gap-2 rounded-full bg-[#1c1917] px-4 py-3 text-sm font-semibold text-white"><ScanLine size={16}/>Open scan intake</Link></div><section className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><Stat label="All bundles" value={summary.data?.totalBundles} hint="retained examination records"/><Stat label="In progress" value={summary.data?.activeBundles} hint="awaiting a final state" accent/><Stat label="Open deviations" value={summary.data?.openDeviations} hint="three marks or more apart"/><Stat label="Finalized" value={summary.data?.finalizedBundles} hint="QR-verifiable records"/></section><section className="panel mt-7 overflow-hidden rounded-3xl"><div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#e7e4df] px-6 py-5"><div><p className="mono-label text-[#7c5e10]">Active register</p><h2 className="mt-1 text-lg font-semibold">Recently touched bundles</h2></div><Link href="/dashboard/history" className="press flex items-center gap-1 text-sm text-[#7c5e10]">Full history <ArrowRight size={15}/></Link></div>{bundles.isLoading ? <div className="p-10 text-sm text-[#78716c]">Loading the secured bundle register…</div> : bundles.data?.length ? <div className="divide-y divide-[#eeeae4]">{bundles.data.slice(0, 6).map(bundle => <Link key={bundle.id} href={`/dashboard/marking?bundle=${bundle.id}`} className="press flex flex-wrap items-center gap-4 px-6 py-4 hover:bg-[#fdfcfb]"><span className="grid h-9 w-9 place-items-center rounded-full bg-[#f7f1e3] text-[#7c5e10]"><FileStack size={16}/></span><div className="min-w-[180px] flex-1"><p className="text-sm font-semibold">{bundle.candidateName}</p><p className="mt-1 mono-label text-[#a8a29e]">{bundle.subject}</p></div><span className="rounded-full bg-[#f5f3ef] px-2.5 py-1 mono-label text-[#78716c]">{bundle.status}</span><span className="text-sm text-[#78716c]">{bundle.pageCount} pages</span><ArrowRight size={16} className="text-[#c8c2b8]"/></Link>)}</div> : <div className="grid min-h-64 place-items-center p-8 text-center"><div><ClipboardCheck className="mx-auto text-[#c5a45c]"/><p className="mt-4 text-sm font-medium">No bundles have entered the register.</p><p className="mt-2 text-xs text-[#78716c]">Use Scan intake to pair a question paper and an answer booklet.</p></div></div>}</section><section className="mt-7 grid gap-4 lg:grid-cols-3">{[[CircleAlert,"Deviation gate","Human and AI scores that differ by three or more marks become review records."],[Gavel,"Moderated outcome","A moderator can uphold or return an evaluation without erasing its evidence."],[ScanLine,"Clarity preserved","Individual page measurements remain associated with the final booklet."]].map(([Icon,title,copy]) => <div key={String(title)} className="rounded-2xl border border-[#e7e4df] bg-white p-5"><Icon size={18} className="text-[#7c5e10]"/><h3 className="mt-5 text-sm font-semibold">{String(title)}</h3><p className="mt-2 text-xs leading-5 text-[#78716c]">{String(copy)}</p></div>)}</section></div>;
+  const overview = trpc.dashboard.adminOverview.useQuery(undefined, {
+    refetchInterval: 5_000,
+  });
+  const metrics = overview.data?.metrics;
+  return (
+    <div className="mx-auto max-w-6xl">
+      <div className="flex flex-wrap items-end justify-between gap-5">
+        <div>
+          <p className="mono-label text-[#2f6f95]">Center administration</p>
+          <h1 className="mt-2 font-display text-5xl">
+            Operational examination overview.
+          </h1>
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-[#6b8190]">
+            Live counts for the current open exam session.
+          </p>
+        </div>
+        <span className="mono-label text-[#6b8190]">
+          {overview.data?.updatedAt
+            ? `Updated ${new Date(overview.data.updatedAt).toLocaleTimeString()}`
+            : "Waiting for an open exam session"}
+        </span>
+      </div>
+      <section className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <Stat
+          label="Schools"
+          value={metrics?.schools}
+          hint="registered center in this session"
+          icon={Building2}
+        />
+        <Stat
+          label="Evaluators"
+          value={metrics?.evaluators}
+          hint="registered evaluator accounts"
+          icon={Users}
+        />
+        <Stat
+          label="Total answer sheets"
+          value={metrics?.totalAnswerSheets}
+          hint="registered booklet records"
+          icon={FileStack}
+        />
+        <Stat
+          label="Scanned"
+          value={metrics?.scanned}
+          hint="saved scan records and later stages"
+          icon={ScanLine}
+        />
+        <Stat
+          label="Assigned"
+          value={metrics?.assigned}
+          hint="answer sheets on evaluator desks"
+          icon={ClipboardCheck}
+        />
+        <Stat
+          label="Evaluated"
+          value={metrics?.evaluated}
+          hint="submitted, re-check, completed, or finalized"
+          icon={FileCheck2}
+        />
+        <Stat
+          label="Pending evaluation"
+          value={metrics?.pendingEvaluation}
+          hint="scanned records not yet evaluated"
+          icon={ClipboardCheck}
+          accent
+        />
+      </section>
+      {overview.isLoading ? (
+        <p className="mt-7 text-sm text-[#6b8190]">Loading live session metrics.</p>
+      ) : overview.isError ? (
+        <section className="panel mt-7 rounded-3xl p-7 text-sm leading-6 text-[#9a4b3d]">
+          Live session metrics could not be loaded. Refresh the workspace or verify the database connection.
+        </section>
+      ) : !overview.data?.currentSession ? (
+        <section className="panel mt-7 rounded-3xl p-7 text-sm leading-6 text-[#6b8190]">
+          Open an exam session to view its live operational metrics.
+        </section>
+      ) : (
+        <section className="panel mt-7 rounded-3xl p-6">
+          <p className="mono-label text-[#2f6f95]">Current session</p>
+          <p className="mt-2 text-lg font-semibold">
+            {overview.data.currentSession.name}
+          </p>
+          <p className="mt-1 text-sm text-[#6b8190]">
+            {overview.data.currentSession.code} · {overview.data.currentSession.centerName}
+          </p>
+        </section>
+      )}
+    </div>
+  );
 }
