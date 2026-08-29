@@ -3,22 +3,22 @@ import { evaluateAnswer } from "./aiGrading";
 import { issueRoleSession, verifyRoleSession } from "./roleAuth";
 
 const originalAppMode = process.env.APP_MODE;
-const originalOpenRouterKey = process.env.OPENROUTER_API_KEY;
-const originalOpenRouterModel = process.env.OPENROUTER_MODEL;
+const originalGeminiKey = process.env.GEMINI_API_KEY;
+const originalGeminiModel = process.env.GEMINI_GRADING_MODEL;
 
 afterEach(() => {
   process.env.APP_MODE = originalAppMode;
-  if (originalOpenRouterKey === undefined) delete process.env.OPENROUTER_API_KEY;
-  else process.env.OPENROUTER_API_KEY = originalOpenRouterKey;
-  if (originalOpenRouterModel === undefined) delete process.env.OPENROUTER_MODEL;
-  else process.env.OPENROUTER_MODEL = originalOpenRouterModel;
+  if (originalGeminiKey === undefined) delete process.env.GEMINI_API_KEY;
+  else process.env.GEMINI_API_KEY = originalGeminiKey;
+  if (originalGeminiModel === undefined) delete process.env.GEMINI_GRADING_MODEL;
+  else process.env.GEMINI_GRADING_MODEL = originalGeminiModel;
 });
 
 describe("real execution on demo data", () => {
-  it("does not replace a missing OpenRouter configuration with a demo grade", async () => {
+  it("does not replace a missing Gemini configuration with a demo grade", async () => {
     process.env.APP_MODE = "demo";
-    delete process.env.OPENROUTER_API_KEY;
-    delete process.env.OPENROUTER_MODEL;
+    delete process.env.GEMINI_API_KEY;
+    delete process.env.GEMINI_GRADING_MODEL;
 
     await expect(
       evaluateAnswer({

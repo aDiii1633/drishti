@@ -18,6 +18,7 @@ import {
   MessageSquareText,
   Redo2,
   RefreshCw,
+  RotateCw,
   ShieldCheck,
   Sparkles,
   Underline,
@@ -95,6 +96,7 @@ function PdfEvidence({
   fallbackUrl,
   page,
   zoom,
+  rotation,
   compact = false,
   annotations,
   annotationTool,
@@ -109,6 +111,7 @@ function PdfEvidence({
   fallbackUrl: string | null | undefined;
   page: number;
   zoom: number;
+  rotation: number;
   compact?: boolean;
   annotations: AnnotationRecord[];
   annotationTool: AnnotationTool;
@@ -187,13 +190,27 @@ function PdfEvidence({
     }
   }, [annotationTool]);
 
-  const pointFromEvent = (event: { clientX: number; clientY: number }) => {
-    const rect = canvasRef.current?.getBoundingClientRect();
-    if (!rect) return null;
-    return {
-      x: Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width)),
-      y: Math.min(1, Math.max(0, (event.clientY - rect.top) / rect.height)),
-    };
+  const pointFromEvent = (event: ReactPointerEvent<SVGSVGElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    if (!rect.width || !rect.height) return null;
+    const x = Math.min(
+      1,
+      Math.max(0, (event.clientX - rect.left) / rect.width)
+    );
+    const y = Math.min(
+      1,
+      Math.max(0, (event.clientY - rect.top) / rect.height)
+    );
+    switch (rotation) {
+      case 90:
+        return { x: y, y: 1 - x };
+      case 180:
+        return { x: 1 - x, y: 1 - y };
+      case 270:
+        return { x: 1 - y, y: x };
+      default:
+        return { x, y };
+    }
   };
 
   const finishShape = (end: { x: number; y: number }) => {
@@ -391,263 +408,270 @@ function PdfEvidence({
           style={{ width: `${zoom}%` }}
           className="relative block shrink-0 max-w-none select-none"
         >
-          <img
-            src={src}
-            alt={`Rendered answer booklet page ${page}`}
-            draggable={false}
-            className="block h-auto w-full max-w-none rounded-md bg-white shadow-[0_18px_55px_-28px_rgba(28,25,23,.45)]"
-          />
-          <svg
-            viewBox="0 0 1 1"
-            preserveAspectRatio="none"
-            aria-label="Teacher annotation layer"
-            className={`absolute inset-0 h-full w-full ${annotationTool === "pan" ? "cursor-grab" : annotationTool === "eraser" ? "cursor-cell" : "cursor-crosshair"}`}
-            onPointerDown={handlePointerDown}
-            onPointerMove={handlePointerMove}
-            onPointerUp={handlePointerUp}
+          <div
+            style={{
+              transform: rotation ? `rotate(${rotation}deg)` : undefined,
+            }}
+            className="relative origin-center transition-transform duration-200 ease-out"
           >
-            {annotations.map(annotation => {
-              const activeEraser = annotationTool === "eraser";
-              const editableScoreMark =
-                annotation.type === "mark" &&
-                annotation.style?.source === "teacher";
-              const handleAnnotationPointerDown = (
-                event: ReactPointerEvent<SVGGElement>
-              ) => {
-                if (activeEraser && annotation.style?.source !== "ai") {
-                  event.stopPropagation();
-                  onDeleteAnnotation(annotation);
-                  return;
-                }
-                if (!editableScoreMark) return;
-                event.stopPropagation();
-                onEditScoreMark(annotation);
-              };
-              const shared = {
-                onPointerDown: handleAnnotationPointerDown,
-                style: {
-                  pointerEvents:
-                    activeEraser || editableScoreMark
-                      ? ("all" as const)
-                      : ("none" as const),
-                },
-              };
-              const color = annotation.style?.color ?? "#b64c40";
-              if (annotation.type === "check")
-                return (
-                  <g key={annotation.id} {...shared}>
-                    <path
-                      d={`M ${annotation.x} ${annotation.y + 0.018} l .012 .014 l .026 -.035`}
-                      fill="none"
-                      stroke="#16805c"
-                      strokeWidth=".006"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </g>
-                );
-              if (annotation.type === "cross")
-                return (
-                  <g key={annotation.id} {...shared}>
-                    <path
-                      d={`M ${annotation.x} ${annotation.y} l .034 .034 M ${annotation.x + 0.034} ${annotation.y} l -.034 .034`}
-                      fill="none"
-                      stroke={color}
-                      strokeWidth=".006"
-                      strokeLinecap="round"
-                    />
-                  </g>
-                );
-              if (annotation.type === "circle")
-                return (
-                  <g key={annotation.id} {...shared}>
-                    <ellipse
-                      cx={annotation.x + annotation.width / 2}
-                      cy={annotation.y + annotation.height / 2}
-                      rx={annotation.width / 2}
-                      ry={annotation.height / 2}
-                      fill="none"
-                      stroke={color}
-                      strokeWidth=".004"
-                    />
-                  </g>
-                );
-              if (annotation.type === "underline")
-                return (
-                  <g key={annotation.id} {...shared}>
-                    <line
-                      x1={annotation.x}
-                      x2={annotation.x + annotation.width}
-                      y1={annotation.y}
-                      y2={annotation.y}
-                      stroke={color}
-                      strokeWidth=".005"
-                      strokeLinecap="round"
-                    />
-                  </g>
-                );
-              if (annotation.type === "highlight")
-                return (
-                  <g key={annotation.id} {...shared}>
-                    <rect
-                      x={annotation.x}
-                      y={annotation.y}
-                      width={annotation.width}
-                      height={annotation.height}
-                      fill="#f4cb48"
-                      fillOpacity=".34"
-                    />
-                  </g>
-                );
-              if (annotation.type === "mark") {
-                const value = annotation.style?.marks;
-                const maximum = annotation.style?.maximumMarks;
-                const label =
-                  value !== undefined && maximum !== undefined
-                    ? annotation.style?.source === "ai"
-                      ? `AI +${value} / ${maximum}`
-                      : `+${value} / ${maximum}`
-                    : (annotation.content ?? "Mark");
-                return (
-                  <g key={annotation.id} {...shared}>
-                    <title>{annotation.content ?? "Mark annotation"}</title>
-                    <rect
-                      x={annotation.x}
-                      y={annotation.y}
-                      width={annotation.width || 0.16}
-                      height={annotation.height || 0.052}
-                      rx=".008"
-                      fill={
-                        annotation.style?.source === "ai"
-                          ? "#eaf6fd"
-                          : "#e5f4ec"
-                      }
-                      stroke={color}
-                      strokeWidth=".0025"
-                    />
-                    <text
-                      x={annotation.x + 0.009}
-                      y={annotation.y + 0.033}
-                      fill={color}
-                      fontSize=".027"
-                      fontWeight="700"
-                    >
-                      {label}
-                    </text>
-                  </g>
-                );
-              }
-              if (annotation.type === "comment")
-                return (
-                  <g key={annotation.id} {...shared}>
-                    <title>{annotation.content ?? "Teacher comment"}</title>
-                    <circle
-                      cx={annotation.x}
-                      cy={annotation.y}
-                      r=".015"
-                      fill="#2f6f95"
-                    />
-                    <path
-                      d={`M ${annotation.x - 0.006} ${annotation.y - 0.004} h .012 M ${annotation.x - 0.006} ${annotation.y + 0.003} h .008`}
-                      stroke="white"
-                      strokeWidth=".003"
-                      strokeLinecap="round"
-                    />
-                  </g>
-                );
-              return (
-                <g key={annotation.id} {...shared}>
-                  <title>{annotation.content ?? "Review required"}</title>
-                  <path
-                    d={`M ${annotation.x} ${annotation.y + 0.034} V ${annotation.y} h .027 l -.006 .009 l .006 .009 h -.027`}
-                    fill="#b45309"
-                    fillOpacity=".9"
-                    stroke="#8c4400"
-                    strokeWidth=".002"
-                  />
-                </g>
-              );
-            })}
-            {shapeStart && shapeEnd ? (
-              annotationTool === "circle" ? (
-                <ellipse
-                  cx={(shapeStart.x + shapeEnd.x) / 2}
-                  cy={(shapeStart.y + shapeEnd.y) / 2}
-                  rx={Math.abs(shapeEnd.x - shapeStart.x) / 2}
-                  ry={Math.abs(shapeEnd.y - shapeStart.y) / 2}
-                  fill="none"
-                  stroke="#2f6f95"
-                  strokeWidth=".004"
-                  strokeDasharray=".01 .008"
-                />
-              ) : annotationTool === "underline" ? (
-                <line
-                  x1={shapeStart.x}
-                  x2={shapeEnd.x}
-                  y1={(shapeStart.y + shapeEnd.y) / 2}
-                  y2={(shapeStart.y + shapeEnd.y) / 2}
-                  stroke="#2f6f95"
-                  strokeWidth=".005"
-                />
-              ) : (
-                <rect
-                  x={Math.min(shapeStart.x, shapeEnd.x)}
-                  y={Math.min(shapeStart.y, shapeEnd.y)}
-                  width={Math.abs(shapeEnd.x - shapeStart.x)}
-                  height={Math.abs(shapeEnd.y - shapeStart.y)}
-                  fill="#f4cb48"
-                  fillOpacity=".26"
-                />
-              )
-            ) : null}
-          </svg>
-          {commentPoint ? (
-            <form
-              onSubmit={event => {
-                event.preventDefault();
-                if (!commentText.trim()) return;
-                onCreateAnnotation({
-                  type: "comment",
-                  x: commentPoint.x,
-                  y: commentPoint.y,
-                  width: 0,
-                  height: 0,
-                  content: commentText.trim(),
-                  style: null,
-                });
-                setCommentPoint(null);
-                setCommentText("");
-              }}
-              style={{
-                left: `${commentPoint.x * 100}%`,
-                top: `${commentPoint.y * 100}%`,
-              }}
-              className="absolute z-20 w-48 -translate-y-full rounded-lg border border-[#b6d6e8] bg-white p-2 shadow-lg"
+            <img
+              src={src}
+              alt={`Rendered answer booklet page ${page}`}
+              draggable={false}
+              className="block h-auto w-full max-w-none rounded-md bg-white shadow-[0_18px_55px_-28px_rgba(28,25,23,.45)]"
+            />
+            <svg
+              viewBox="0 0 1 1"
+              preserveAspectRatio="none"
+              aria-label="Teacher annotation layer"
+              className={`absolute inset-0 h-full w-full ${annotationTool === "pan" ? "cursor-grab" : annotationTool === "eraser" ? "cursor-cell" : "cursor-crosshair"}`}
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerUp}
             >
-              <input
-                autoFocus
-                value={commentText}
-                onChange={event => setCommentText(event.target.value)}
-                placeholder="Add comment"
-                className="h-8 w-full rounded border border-[#d9eaf3] px-2 text-xs outline-none focus:border-[#2f6f95]"
-              />
-              <div className="mt-2 flex justify-end gap-1">
-                <button
-                  type="button"
-                  onClick={() => setCommentPoint(null)}
-                  className="rounded px-2 py-1 text-[10px] text-[#6b8190]"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="rounded bg-[#163044] px-2 py-1 text-[10px] font-semibold text-white"
-                >
-                  Add
-                </button>
-              </div>
-            </form>
-          ) : null}
+              {annotations.map(annotation => {
+                const activeEraser = annotationTool === "eraser";
+                const editableScoreMark =
+                  annotation.type === "mark" &&
+                  annotation.style?.source === "teacher";
+                const handleAnnotationPointerDown = (
+                  event: ReactPointerEvent<SVGGElement>
+                ) => {
+                  if (activeEraser && annotation.style?.source !== "ai") {
+                    event.stopPropagation();
+                    onDeleteAnnotation(annotation);
+                    return;
+                  }
+                  if (!editableScoreMark) return;
+                  event.stopPropagation();
+                  onEditScoreMark(annotation);
+                };
+                const shared = {
+                  onPointerDown: handleAnnotationPointerDown,
+                  style: {
+                    pointerEvents:
+                      activeEraser || editableScoreMark
+                        ? ("all" as const)
+                        : ("none" as const),
+                  },
+                };
+                const color = annotation.style?.color ?? "#b64c40";
+                if (annotation.type === "check")
+                  return (
+                    <g key={annotation.id} {...shared}>
+                      <path
+                        d={`M ${annotation.x} ${annotation.y + 0.018} l .012 .014 l .026 -.035`}
+                        fill="none"
+                        stroke="#16805c"
+                        strokeWidth=".006"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </g>
+                  );
+                if (annotation.type === "cross")
+                  return (
+                    <g key={annotation.id} {...shared}>
+                      <path
+                        d={`M ${annotation.x} ${annotation.y} l .034 .034 M ${annotation.x + 0.034} ${annotation.y} l -.034 .034`}
+                        fill="none"
+                        stroke={color}
+                        strokeWidth=".006"
+                        strokeLinecap="round"
+                      />
+                    </g>
+                  );
+                if (annotation.type === "circle")
+                  return (
+                    <g key={annotation.id} {...shared}>
+                      <ellipse
+                        cx={annotation.x + annotation.width / 2}
+                        cy={annotation.y + annotation.height / 2}
+                        rx={annotation.width / 2}
+                        ry={annotation.height / 2}
+                        fill="none"
+                        stroke={color}
+                        strokeWidth=".004"
+                      />
+                    </g>
+                  );
+                if (annotation.type === "underline")
+                  return (
+                    <g key={annotation.id} {...shared}>
+                      <line
+                        x1={annotation.x}
+                        x2={annotation.x + annotation.width}
+                        y1={annotation.y}
+                        y2={annotation.y}
+                        stroke={color}
+                        strokeWidth=".005"
+                        strokeLinecap="round"
+                      />
+                    </g>
+                  );
+                if (annotation.type === "highlight")
+                  return (
+                    <g key={annotation.id} {...shared}>
+                      <rect
+                        x={annotation.x}
+                        y={annotation.y}
+                        width={annotation.width}
+                        height={annotation.height}
+                        fill="#f4cb48"
+                        fillOpacity=".34"
+                      />
+                    </g>
+                  );
+                if (annotation.type === "mark") {
+                  const value = annotation.style?.marks;
+                  const maximum = annotation.style?.maximumMarks;
+                  const label =
+                    value !== undefined && maximum !== undefined
+                      ? annotation.style?.source === "ai"
+                        ? `AI +${value} / ${maximum}`
+                        : `+${value} / ${maximum}`
+                      : (annotation.content ?? "Mark");
+                  return (
+                    <g key={annotation.id} {...shared}>
+                      <title>{annotation.content ?? "Mark annotation"}</title>
+                      <rect
+                        x={annotation.x}
+                        y={annotation.y}
+                        width={annotation.width || 0.16}
+                        height={annotation.height || 0.052}
+                        rx=".008"
+                        fill={
+                          annotation.style?.source === "ai"
+                            ? "#eaf6fd"
+                            : "#e5f4ec"
+                        }
+                        stroke={color}
+                        strokeWidth=".0025"
+                      />
+                      <text
+                        x={annotation.x + 0.009}
+                        y={annotation.y + 0.033}
+                        fill={color}
+                        fontSize=".027"
+                        fontWeight="700"
+                      >
+                        {label}
+                      </text>
+                    </g>
+                  );
+                }
+                if (annotation.type === "comment")
+                  return (
+                    <g key={annotation.id} {...shared}>
+                      <title>{annotation.content ?? "Teacher comment"}</title>
+                      <circle
+                        cx={annotation.x}
+                        cy={annotation.y}
+                        r=".015"
+                        fill="#2f6f95"
+                      />
+                      <path
+                        d={`M ${annotation.x - 0.006} ${annotation.y - 0.004} h .012 M ${annotation.x - 0.006} ${annotation.y + 0.003} h .008`}
+                        stroke="white"
+                        strokeWidth=".003"
+                        strokeLinecap="round"
+                      />
+                    </g>
+                  );
+                return (
+                  <g key={annotation.id} {...shared}>
+                    <title>{annotation.content ?? "Review required"}</title>
+                    <path
+                      d={`M ${annotation.x} ${annotation.y + 0.034} V ${annotation.y} h .027 l -.006 .009 l .006 .009 h -.027`}
+                      fill="#b45309"
+                      fillOpacity=".9"
+                      stroke="#8c4400"
+                      strokeWidth=".002"
+                    />
+                  </g>
+                );
+              })}
+              {shapeStart && shapeEnd ? (
+                annotationTool === "circle" ? (
+                  <ellipse
+                    cx={(shapeStart.x + shapeEnd.x) / 2}
+                    cy={(shapeStart.y + shapeEnd.y) / 2}
+                    rx={Math.abs(shapeEnd.x - shapeStart.x) / 2}
+                    ry={Math.abs(shapeEnd.y - shapeStart.y) / 2}
+                    fill="none"
+                    stroke="#2f6f95"
+                    strokeWidth=".004"
+                    strokeDasharray=".01 .008"
+                  />
+                ) : annotationTool === "underline" ? (
+                  <line
+                    x1={shapeStart.x}
+                    x2={shapeEnd.x}
+                    y1={(shapeStart.y + shapeEnd.y) / 2}
+                    y2={(shapeStart.y + shapeEnd.y) / 2}
+                    stroke="#2f6f95"
+                    strokeWidth=".005"
+                  />
+                ) : (
+                  <rect
+                    x={Math.min(shapeStart.x, shapeEnd.x)}
+                    y={Math.min(shapeStart.y, shapeEnd.y)}
+                    width={Math.abs(shapeEnd.x - shapeStart.x)}
+                    height={Math.abs(shapeEnd.y - shapeStart.y)}
+                    fill="#f4cb48"
+                    fillOpacity=".26"
+                  />
+                )
+              ) : null}
+            </svg>
+            {commentPoint ? (
+              <form
+                onSubmit={event => {
+                  event.preventDefault();
+                  if (!commentText.trim()) return;
+                  onCreateAnnotation({
+                    type: "comment",
+                    x: commentPoint.x,
+                    y: commentPoint.y,
+                    width: 0,
+                    height: 0,
+                    content: commentText.trim(),
+                    style: null,
+                  });
+                  setCommentPoint(null);
+                  setCommentText("");
+                }}
+                style={{
+                  left: `${commentPoint.x * 100}%`,
+                  top: `${commentPoint.y * 100}%`,
+                }}
+                className="absolute z-20 w-48 -translate-y-full rounded-lg border border-[#b6d6e8] bg-white p-2 shadow-lg"
+              >
+                <input
+                  autoFocus
+                  value={commentText}
+                  onChange={event => setCommentText(event.target.value)}
+                  placeholder="Add comment"
+                  className="h-8 w-full rounded border border-[#d9eaf3] px-2 text-xs outline-none focus:border-[#2f6f95]"
+                />
+                <div className="mt-2 flex justify-end gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setCommentPoint(null)}
+                    className="rounded px-2 py-1 text-[10px] text-[#6b8190]"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="rounded bg-[#163044] px-2 py-1 text-[10px] font-semibold text-white"
+                  >
+                    Add
+                  </button>
+                </div>
+              </form>
+            ) : null}
+          </div>
         </div>
       </div>
     </div>
@@ -698,6 +722,9 @@ export default function Marking() {
   const [questionIndex, setQuestionIndex] = useState(0);
   const [page, setPage] = useState(1);
   const [zoom, setZoom] = useState(100);
+  const [pageRotations, setPageRotations] = useState<Record<number, number>>(
+    {}
+  );
   const [humanMark, setHumanMark] = useState<number | "">("");
   const [markDrafts, setMarkDrafts] = useState<Record<string, number | "">>({});
   const [dirtyMarks, setDirtyMarks] = useState<Record<string, true>>({});
@@ -921,6 +948,7 @@ export default function Marking() {
     setQuestionIndex(0);
     setPage(1);
     setZoom(100);
+    setPageRotations({});
     setVisitedPages({});
     setAnnotationUndoStack([]);
     setAnnotationRedoStack([]);
@@ -1362,6 +1390,14 @@ export default function Marking() {
         ? "border-[#2f6f95] bg-[#eaf6fd] text-[#163044]"
         : "border-transparent text-[#587181] hover:border-[#b6d6e8] hover:bg-white"
     }`;
+
+  const pageRotation = pageRotations[page] ?? 0;
+  const rotatePaperClockwise = () => {
+    setPageRotations(current => ({
+      ...current,
+      [page]: ((current[page] ?? 0) + 90) % 360,
+    }));
+  };
 
   const annotationRailToolClass = (tool: AnnotationTool) =>
     `press grid h-9 w-9 place-items-center rounded-md border transition ${
@@ -1924,6 +1960,15 @@ export default function Marking() {
                       >
                         <Hand size={18} />
                       </button>
+                      <button
+                        type="button"
+                        title={`Rotate paper clockwise${pageRotation ? ` (${pageRotation}°)` : ""}`}
+                        aria-label="Rotate paper clockwise"
+                        onClick={rotatePaperClockwise}
+                        className="press grid h-9 w-9 place-items-center rounded-md border border-transparent text-[#587181] transition hover:border-[#b6d6e8] hover:bg-white"
+                      >
+                        <RotateCw size={18} />
+                      </button>
                     </div>
                   </aside>
                 ) : null}
@@ -1936,6 +1981,7 @@ export default function Marking() {
                     fallbackUrl={currentPage?.pageDataUrl}
                     page={page}
                     zoom={zoom}
+                    rotation={pageRotation}
                     compact={isCheckingWorkspace}
                     annotations={pageAnnotations}
                     annotationTool={annotationTool}
@@ -2040,6 +2086,15 @@ export default function Marking() {
                             className={annotationToolClass("pan")}
                           >
                             <Hand size={14} />
+                          </button>
+                          <button
+                            type="button"
+                            title={`Rotate paper clockwise${pageRotation ? ` (${pageRotation}°)` : ""}`}
+                            aria-label="Rotate paper clockwise"
+                            onClick={rotatePaperClockwise}
+                            className="press grid h-7 w-7 place-items-center rounded-md border border-transparent text-[#587181] transition hover:border-[#b6d6e8] hover:bg-white"
+                          >
+                            <RotateCw size={14} />
                           </button>
                           <button
                             type="button"

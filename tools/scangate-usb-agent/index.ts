@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { randomUUID } from "node:crypto";
 import { SerialPort } from "serialport";
@@ -18,7 +19,16 @@ const EXPECTED_VID_PID = parseVidPid(process.env.SCANGATE_USB_EXPECTED_VID_PID);
 const REQUESTED_PORT = process.env.SCANGATE_USB_PORT?.trim().toUpperCase() ?? "";
 const INGEST_URL = requiredLoopbackUrl(process.env.SCANGATE_USB_INGEST_URL ?? "http://127.0.0.1:8000/api/v1/captures/usb");
 const QR_DECODE_URL = appendUrlPath(INGEST_URL, "/qr");
-const INGEST_TOKEN = process.env.SCANGATE_USB_INGEST_TOKEN?.trim() ?? "dev-insecure-usb-agent-token-change-me";
+const configuredIngestToken = process.env.SCANGATE_USB_INGEST_TOKEN?.trim();
+const INGEST_TOKEN = configuredIngestToken ?? "dev-insecure-usb-agent-token-change-me";
+if (
+  process.env.APP_MODE?.trim().toLowerCase() !== "demo" &&
+  (!configuredIngestToken || configuredIngestToken === "dev-insecure-usb-agent-token-change-me")
+) {
+  throw new Error(
+    "SCANGATE_USB_INGEST_TOKEN must be configured with a non-default local secret outside demo mode."
+  );
+}
 
 const PacketType = {
   PING: 1, PONG: 2, STATUS: 3, GET_DEVICE_INFO: 4, DEVICE_INFO: 5,

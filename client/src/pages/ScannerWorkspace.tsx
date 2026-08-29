@@ -265,13 +265,152 @@ function QualityBadge({ page }: { page: PageEvidence }) {
   );
 }
 
+type FrameDimensions = { width: number; height: number };
+type FovCalibration = {
+  distanceMm: number;
+  sceneWidthMm: number;
+  sceneHeightMm: number;
+  orientation: "portrait" | "landscape";
+};
+
+const CAMERA_FOV_CALIBRATION_KEY = "drishti.camera-fov-calibration.v1";
+
+function validCalibration(value: unknown): value is FovCalibration {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const calibration = value as Record<string, unknown>;
+  return (
+    typeof calibration.distanceMm === "number" &&
+    calibration.distanceMm > 0 &&
+    typeof calibration.sceneWidthMm === "number" &&
+    calibration.sceneWidthMm > 0 &&
+    typeof calibration.sceneHeightMm === "number" &&
+    calibration.sceneHeightMm > 0 &&
+    (calibration.orientation === "portrait" ||
+      calibration.orientation === "landscape")
+  );
+}
+
+function approximateFov(coverageMm: number, distanceMm: number) {
+  return (2 * Math.atan(coverageMm / (2 * distanceMm)) * 180) / Math.PI;
+}
+
+function DeveloperFovCalibration({
+  frame,
+  calibration,
+  onSave,
+}: {
+  frame: FrameDimensions | null;
+  calibration: FovCalibration | null;
+  onSave: (value: FovCalibration) => void;
+}) {
+  const [distanceMm, setDistanceMm] = useState(
+    calibration?.distanceMm ? String(calibration.distanceMm) : ""
+  );
+  const [sceneWidthMm, setSceneWidthMm] = useState(
+    calibration?.sceneWidthMm ? String(calibration.sceneWidthMm) : ""
+  );
+  const [sceneHeightMm, setSceneHeightMm] = useState(
+    calibration?.sceneHeightMm ? String(calibration.sceneHeightMm) : ""
+  );
+  const [orientation, setOrientation] = useState<"portrait" | "landscape">(
+    calibration?.orientation ?? "portrait"
+  );
+  const distance = Number(distanceMm);
+  const sceneWidth = Number(sceneWidthMm);
+  const sceneHeight = Number(sceneHeightMm);
+  const ready = distance > 0 && sceneWidth > 0 && sceneHeight > 0;
+
+  useEffect(() => {
+    if (!calibration) return;
+    setDistanceMm(String(calibration.distanceMm));
+    setSceneWidthMm(String(calibration.sceneWidthMm));
+    setSceneHeightMm(String(calibration.sceneHeightMm));
+    setOrientation(calibration.orientation);
+  }, [calibration]);
+
+  return (
+    <details className="border-t border-white/10 bg-[#0b1d28] px-3 py-2 text-[11px] text-white/70">
+      <summary className="cursor-pointer font-semibold text-[#b7ddec]">
+        Developer FOV calibration
+      </summary>
+      <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <label>
+          <span className="block text-white/55">Camera distance (mm)</span>
+          <input
+            type="number"
+            min="1"
+            value={distanceMm}
+            onChange={event => setDistanceMm(event.target.value)}
+            className="mt-1 h-9 w-full rounded-md border border-white/15 bg-white/5 px-2 text-white outline-none"
+          />
+        </label>
+        <label>
+          <span className="block text-white/55">Visible scene width (mm)</span>
+          <input
+            type="number"
+            min="1"
+            value={sceneWidthMm}
+            onChange={event => setSceneWidthMm(event.target.value)}
+            className="mt-1 h-9 w-full rounded-md border border-white/15 bg-white/5 px-2 text-white outline-none"
+          />
+        </label>
+        <label>
+          <span className="block text-white/55">Visible scene height (mm)</span>
+          <input
+            type="number"
+            min="1"
+            value={sceneHeightMm}
+            onChange={event => setSceneHeightMm(event.target.value)}
+            className="mt-1 h-9 w-full rounded-md border border-white/15 bg-white/5 px-2 text-white outline-none"
+          />
+        </label>
+        <label>
+          <span className="block text-white/55">A4 orientation in frame</span>
+          <select
+            value={orientation}
+            onChange={event =>
+              setOrientation(event.target.value as "portrait" | "landscape")
+            }
+            className="mt-1 h-9 w-full rounded-md border border-white/15 bg-[#102737] px-2 text-white outline-none"
+          >
+            <option value="portrait">Portrait</option>
+            <option value="landscape">Landscape</option>
+          </select>
+        </label>
+      </div>
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+        <p>
+          Frame {frame ? `${frame.width} × ${frame.height}` : "not loaded"}
+          {ready
+            ? ` · approximate FOV ${approximateFov(sceneWidth, distance).toFixed(1)}° × ${approximateFov(sceneHeight, distance).toFixed(1)}°`
+            : " · enter measured coverage to calculate FOV"}
+        </p>
+        <button
+          type="button"
+          disabled={!ready}
+          onClick={() =>
+            onSave({
+              distanceMm: distance,
+              sceneWidthMm: sceneWidth,
+              sceneHeightMm: sceneHeight,
+              orientation,
+            })
+          }
+          className="rounded-md bg-[#8fc7e8] px-3 py-2 font-semibold text-[#102737] disabled:opacity-40"
+        >
+          Save calibration
+        </button>
+      </div>
+    </details>
+  );
+}
+
 function HardwareCameraPreview({
   image,
   capturedAt,
   source,
   connected,
   loading,
-  guide,
   status,
   onRefresh,
   resultImage = false,
@@ -281,14 +420,44 @@ function HardwareCameraPreview({
   source: string;
   connected: boolean;
   loading: boolean;
-  guide: "qr" | "page";
   status: string;
   onRefresh: () => void;
   resultImage?: boolean;
 }) {
+  const [frameDimensions, setFrameDimensions] = useState<FrameDimensions | null>(
+    null
+  );
+  const [calibration, setCalibration] = useState<FovCalibration | null>(null);
+  const calibrationEnabled =
+    import.meta.env.DEV &&
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("cameraCalibration") === "1";
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(CAMERA_FOV_CALIBRATION_KEY);
+      const stored: unknown = raw ? JSON.parse(raw) : null;
+      if (validCalibration(stored)) setCalibration(stored);
+    } catch {
+      // A missing or malformed developer calibration falls back to geometry-only guidance.
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!image) setFrameDimensions(null);
+  }, [image]);
+
+  const saveCalibration = (value: FovCalibration) => {
+    setCalibration(value);
+    window.localStorage.setItem(CAMERA_FOV_CALIBRATION_KEY, JSON.stringify(value));
+  };
+  const frameAspect = frameDimensions
+    ? `${frameDimensions.width} / ${frameDimensions.height}`
+    : "4 / 3";
+
   return (
-    <div className="overflow-hidden rounded-2xl border border-[#375568] bg-[#102737] text-white">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
+    <div className="rounded-2xl border border-[#375568] bg-[#102737] text-white">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-3 py-2.5">
         <div>
           <p className="mono-label text-white/55">Hardware camera</p>
           <p className="mt-1 text-sm font-semibold">
@@ -305,11 +474,8 @@ function HardwareCameraPreview({
         </span>
       </div>
       <div
-        className={`relative bg-[#0b1d28] ${
-          guide === "qr"
-            ? "aspect-[4/3] min-h-[260px]"
-            : "h-[clamp(420px,68vh,720px)] min-h-[420px]"
-        }`}
+        className="relative mx-auto w-full border border-[#5f9abb]/70 bg-[#0b1d28]"
+        style={{ aspectRatio: frameAspect }}
       >
         {image ? (
           <img
@@ -319,7 +485,16 @@ function HardwareCameraPreview({
                 ? "Current answer sheet processed by ScanGate"
                 : "Actual frame from the connected ESP32 camera"
             }
-            className="h-full w-full object-contain"
+            onLoad={event => {
+              const target = event.currentTarget;
+              if (target.naturalWidth && target.naturalHeight) {
+                setFrameDimensions({
+                  width: target.naturalWidth,
+                  height: target.naturalHeight,
+                });
+              }
+            }}
+            className="absolute inset-0 h-full w-full object-contain object-center"
           />
         ) : (
           <div className="grid h-full place-items-center p-6 text-center">
@@ -339,31 +514,20 @@ function HardwareCameraPreview({
             </div>
           </div>
         )}
-        {!resultImage ? (
-          <div
-            className={`pointer-events-none absolute rounded-xl border-2 border-[#8fc7e8] ${
-              guide === "qr"
-                ? "inset-[20%_28%]"
-                : "left-1/2 top-1/2 h-[90%] max-w-[88%] aspect-[210/297] -translate-x-1/2 -translate-y-1/2"
-            }`}
-          />
-        ) : null}
-        <span className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-[#102737]/85 px-3 py-1 text-[10px] font-semibold">
+        <span className="pointer-events-none absolute bottom-2 left-1/2 max-w-[92%] -translate-x-1/2 truncate rounded-full bg-[#102737]/85 px-3 py-1 text-[10px] font-semibold">
           {resultImage
             ? "Current captured page"
-            : guide === "qr"
-              ? "Place QR inside the frame"
-              : "Frame the full answer page"}
+            : "Full ESP32 camera frame visible"}
         </span>
       </div>
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 px-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 px-3 py-2.5">
         <div className="min-w-0">
           <p className="text-xs font-semibold text-[#b7ddec]">{status}</p>
           <p className="mt-1 truncate text-[10px] text-white/55">
             {resultImage
               ? "Enhanced image from the current capture session"
               : capturedAt
-              ? `Hardware frame ${new Date(capturedAt).toLocaleTimeString()} · ${source}`
+              ? `Hardware frame ${new Date(capturedAt).toLocaleTimeString()} · ${frameDimensions ? `${frameDimensions.width} × ${frameDimensions.height} · ` : ""}${source}`
               : "Preview uses periodic USB still frames, not the laptop camera."}
           </p>
         </div>
@@ -381,6 +545,13 @@ function HardwareCameraPreview({
           Refresh frame
         </button>
       </div>
+      {calibrationEnabled ? (
+        <DeveloperFovCalibration
+          frame={frameDimensions}
+          calibration={calibration}
+          onSave={saveCalibration}
+        />
+      ) : null}
     </div>
   );
 }
@@ -402,6 +573,8 @@ export default function ScannerWorkspace() {
   const [qrImagePreview, setQrImagePreview] = useState("");
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [cameraMode, setCameraMode] = useState<"qr" | "answer" | null>(null);
+  const [cameraFrameDimensions, setCameraFrameDimensions] =
+    useState<FrameDimensions>({ width: 4, height: 3 });
   const [videoDeviceId, setVideoDeviceId] = useState("");
   const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
   const [hardwareSessionId, setHardwareSessionId] = useState<string | null>(
@@ -608,6 +781,12 @@ export default function ScannerWorkspace() {
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           await videoRef.current.play().catch(() => undefined);
+          if (videoRef.current.videoWidth && videoRef.current.videoHeight) {
+            setCameraFrameDimensions({
+              width: videoRef.current.videoWidth,
+              height: videoRef.current.videoHeight,
+            });
+          }
         }
         await listCameras();
       } catch (error) {
@@ -1399,7 +1578,9 @@ export default function ScannerWorkspace() {
                         <p className="mt-1 text-xs leading-5 text-[#587181]">
                           {usbConnection.data.message}{" "}
                           {hardwareConnection.data.available
-                            ? hardwareConnection.data.message
+                            ? usbConnection.data.testMode
+                              ? hardwareConnection.data.message
+                              : null
                             : "The real hardware preview remains available while the processing service is checked."}
                         </p>
                       </div>
@@ -1425,14 +1606,28 @@ export default function ScannerWorkspace() {
                     </div>
                   </div>
                   {source === "camera" ? (
-                    <div className="mt-5 overflow-hidden rounded-2xl border border-[#d9eaf3] bg-[#163044]">
-                      <div className="relative aspect-[16/8] min-h-[210px]">
+                    <div className="mt-5 rounded-2xl border border-[#d9eaf3] bg-[#163044]">
+                      <div
+                        className="relative mx-auto w-full border border-[#5f9abb]/70 bg-[#0b1d28]"
+                        style={{
+                          aspectRatio: `${cameraFrameDimensions.width} / ${cameraFrameDimensions.height}`,
+                        }}
+                      >
                         <video
                           ref={videoRef}
                           autoPlay
                           playsInline
                           muted
-                          className={`h-full w-full object-cover ${cameraMode === "qr" ? "" : "hidden"}`}
+                          onLoadedMetadata={event => {
+                            const target = event.currentTarget;
+                            if (target.videoWidth && target.videoHeight) {
+                              setCameraFrameDimensions({
+                                width: target.videoWidth,
+                                height: target.videoHeight,
+                              });
+                            }
+                          }}
+                          className={`absolute inset-0 h-full w-full object-contain object-center ${cameraMode === "qr" ? "" : "hidden"}`}
                         />
                         {cameraMode !== "qr" ? (
                           <div className="grid h-full place-items-center p-6 text-center text-white">
@@ -1448,7 +1643,9 @@ export default function ScannerWorkspace() {
                             </p>
                           </div>
                         ) : null}
-                        <div className="pointer-events-none absolute inset-[20%_25%] rounded-2xl border-2 border-[#8fc7e8] shadow-[0_0_0_999px_rgba(16,43,59,0.3)]" />
+                        <span className="pointer-events-none absolute bottom-2 left-1/2 max-w-[92%] -translate-x-1/2 truncate rounded-full bg-[#102737]/85 px-3 py-1 text-[10px] font-semibold text-white">
+                          Full camera frame visible
+                        </span>
                       </div>
                       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 p-3 text-xs text-white/75">
                         <span>{qrFeedback}</span>
@@ -1482,7 +1679,6 @@ export default function ScannerWorkspace() {
                             !usbConnection.data.testMode
                         )}
                         loading={hardwarePreviewCapture.isPending}
-                        guide="qr"
                         status={
                           hardwarePreviewError ||
                           (qrStatus === "verified"
@@ -1650,19 +1846,37 @@ export default function ScannerWorkspace() {
               <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
                 <div>
                   {source === "camera" ? (
-                    <div className="overflow-hidden rounded-2xl border border-[#d9eaf3] bg-[#163044]">
-                      <div className="relative h-[clamp(420px,68vh,720px)] min-h-[420px] bg-[#0b1d28]">
+                    <div className="rounded-2xl border border-[#d9eaf3] bg-[#163044]">
+                      <div
+                        className="relative mx-auto w-full border border-[#5f9abb]/70 bg-[#0b1d28]"
+                        style={{
+                          aspectRatio: `${cameraFrameDimensions.width} / ${cameraFrameDimensions.height}`,
+                        }}
+                      >
                         <video
                           ref={videoRef}
                           autoPlay
                           playsInline
                           muted
-                          className="h-full w-full object-contain"
+                          onLoadedMetadata={event => {
+                            const target = event.currentTarget;
+                            if (target.videoWidth && target.videoHeight) {
+                              setCameraFrameDimensions({
+                                width: target.videoWidth,
+                                height: target.videoHeight,
+                              });
+                            }
+                          }}
+                          className="absolute inset-0 h-full w-full object-contain object-center"
                         />
-                        <div className="pointer-events-none absolute left-1/2 top-1/2 h-[90%] max-w-[88%] aspect-[210/297] -translate-x-1/2 -translate-y-1/2 rounded-xl border-2 border-[#8fc7e8]" />
+                        <span className="pointer-events-none absolute bottom-2 left-1/2 max-w-[92%] -translate-x-1/2 truncate rounded-full bg-[#102737]/85 px-3 py-1 text-[10px] font-semibold text-white">
+                          Full camera frame visible
+                        </span>
                       </div>
                       <div className="flex items-center justify-between gap-3 p-3 text-xs text-white/75">
-                        <span>Frame the full page</span>
+                        <span>
+                          Full frame {cameraFrameDimensions.width} × {cameraFrameDimensions.height}
+                        </span>
                         <button
                           type="button"
                           onClick={captureAnswerPhoto}
@@ -1727,7 +1941,6 @@ export default function ScannerWorkspace() {
                             !usbConnection.data.testMode
                         )}
                         loading={hardwarePreviewCapture.isPending}
-                        guide="page"
                         status={
                           hardwarePreviewError ||
                           hardwareCapture.data?.message ||

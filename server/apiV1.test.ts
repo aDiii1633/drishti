@@ -56,28 +56,28 @@ describe("Drishti REST API contracts", () => {
     });
   });
 
-  it("reports OpenRouter grading readiness without exposing the server key", async () => {
-    const previousKey = process.env.OPENROUTER_API_KEY;
-    const previousModel = process.env.OPENROUTER_MODEL;
-    process.env.OPENROUTER_API_KEY = "server-only-test-key";
-    process.env.OPENROUTER_MODEL = "qwen/qwen2.5-vl-72b-instruct:free";
+  it("reports Gemini grading readiness without exposing the server key", async () => {
+    const previousKey = process.env.GEMINI_API_KEY;
+    const previousModel = process.env.GEMINI_GRADING_MODEL;
+    process.env.GEMINI_API_KEY = "server-only-test-key";
+    process.env.GEMINI_GRADING_MODEL = "gemini-3.6-flash";
     try {
       const { res, response } = responseRecorder();
       await registeredHandlers()["GET /api/v1/ai/status"]({}, res);
       expect(response).toMatchObject({
         code: 200,
         body: {
-          provider: "openrouter",
-          model: "qwen/qwen2.5-vl-72b-instruct:free",
+          provider: "gemini",
+          model: "gemini-3.6-flash",
           ready: true,
         },
       });
       expect(JSON.stringify(response.body)).not.toContain("server-only-test-key");
     } finally {
-      if (previousKey === undefined) delete process.env.OPENROUTER_API_KEY;
-      else process.env.OPENROUTER_API_KEY = previousKey;
-      if (previousModel === undefined) delete process.env.OPENROUTER_MODEL;
-      else process.env.OPENROUTER_MODEL = previousModel;
+      if (previousKey === undefined) delete process.env.GEMINI_API_KEY;
+      else process.env.GEMINI_API_KEY = previousKey;
+      if (previousModel === undefined) delete process.env.GEMINI_GRADING_MODEL;
+      else process.env.GEMINI_GRADING_MODEL = previousModel;
     }
   });
 

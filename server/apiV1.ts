@@ -26,13 +26,13 @@ export function registerDrishtiApi(app: Express) {
     }
   });
   app.get("/api/v1/ai/status", async (_req, res) => {
-    const openRouterReady = Boolean(process.env.OPENROUTER_API_KEY && process.env.OPENROUTER_MODEL);
+    const geminiReady = Boolean(process.env.GEMINI_API_KEY);
     res.set("Cache-Control", "no-store");
     return res.json({
-      provider: "openrouter",
-      model: "qwen/qwen2.5-vl-72b-instruct:free",
-      ready: openRouterReady,
-      modelConfigured: Boolean(process.env.OPENROUTER_MODEL),
+      provider: "gemini",
+      model: process.env.GEMINI_GRADING_MODEL || "gemini-3.6-flash",
+      ready: geminiReady,
+      modelConfigured: geminiReady,
       retries: 2,
       evaluationMode: "question-first-vision",
     });

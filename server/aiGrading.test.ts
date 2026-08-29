@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { answerPageTextFallback, evaluateAnswer, prepareQuestionEvidence } from "./aiGrading";
 
-const originalApiKey = process.env.OPENROUTER_API_KEY;
-const originalModel = process.env.OPENROUTER_MODEL;
+const originalApiKey = process.env.GEMINI_API_KEY;
+const originalModel = process.env.GEMINI_GRADING_MODEL;
 
 const question = {
   id: "Q4",
@@ -23,7 +23,7 @@ function response(value: unknown) {
   return {
     ok: true,
     status: 200,
-    json: async () => ({ choices: [{ message: { content: JSON.stringify(value) } }] }),
+    json: async () => ({ candidates: [{ content: { parts: [{ text: JSON.stringify(value) }] } }] }),
   };
 }
 
@@ -49,21 +49,21 @@ const validGrade = {
 };
 
 afterEach(() => {
-  if (originalApiKey === undefined) delete process.env.OPENROUTER_API_KEY;
-  else process.env.OPENROUTER_API_KEY = originalApiKey;
-  if (originalModel === undefined) delete process.env.OPENROUTER_MODEL;
-  else process.env.OPENROUTER_MODEL = originalModel;
+  if (originalApiKey === undefined) delete process.env.GEMINI_API_KEY;
+  else process.env.GEMINI_API_KEY = originalApiKey;
+  if (originalModel === undefined) delete process.env.GEMINI_GRADING_MODEL;
+  else process.env.GEMINI_GRADING_MODEL = originalModel;
   vi.restoreAllMocks();
 });
 
-function configureOpenRouter() {
-  process.env.OPENROUTER_API_KEY = "test-key";
-  process.env.OPENROUTER_MODEL = "qwen/qwen2.5-vl-72b-instruct:free";
+function configureGemini() {
+  process.env.GEMINI_API_KEY = "test-key";
+  process.env.GEMINI_GRADING_MODEL = "gemini-3.6-flash";
 }
 
-describe("OpenRouter Qwen question-first grading", () => {
+describe("Gemini question-first grading", () => {
   it("sends the authoritative rubric and selected answer image server-side", async () => {
-    configureOpenRouter();
+    configureGemini();
     const fetchMock = vi.fn().mockResolvedValue(response(validGrade));
     vi.stubGlobal("fetch", fetchMock);
 
@@ -77,19 +77,18 @@ describe("OpenRouter Qwen question-first grading", () => {
     });
 
     const [url, options] = fetchMock.mock.calls[0] as [string, { headers: Record<string, string>; body: string }];
-    expect(url).toBe("https://openrouter.ai/api/v1/chat/completions");
-    expect(options.headers.Authorization).toBe("Bearer test-key");
-    expect(options.body).toContain("qwen/qwen2.5-vl-72b-instruct:free");
+    expect(url).toBe("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent");
+    expect(options.headers["x-goog-api-key"]).toBe("test-key");
     expect(options.body).toContain("Official rubric");
     expect(options.body).toContain("Do not grade by keyword count");
-    expect(options.body).toContain("image_url");
-    expect(options.body).toContain("json_schema");
-    expect(result).toMatchObject({ provider: "openrouter", model: "qwen/qwen2.5-vl-72b-instruct:free" });
+    expect(options.body).toContain("inlineData");
+    expect(options.body).toContain("responseJsonSchema");
+    expect(result).toMatchObject({ provider: "gemini", model: "gemini-3.6-flash" });
     expect(result.grade.suggestedScore).toBe(3.5);
   });
 
   it("retries an invalid score instead of persisting it", async () => {
-    configureOpenRouter();
+    configureGemini();
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(response({ ...validGrade, suggestedScore: 6 }))
       .mockResolvedValueOnce(response(validGrade));
@@ -105,7 +104,7 @@ describe("OpenRouter Qwen question-first grading", () => {
   });
 
   it("requires review for unreadable or low-confidence evidence without inventing marks", async () => {
-    configureOpenRouter();
+    configureGemini();
     const fetchMock = vi.fn().mockResolvedValue(response({
       ...validGrade,
       mappingConfidence: 50,
@@ -126,7 +125,7 @@ describe("OpenRouter Qwen question-first grading", () => {
   });
 
   it("maps answer numbering and a normalized visual region from the answer image", async () => {
-    configureOpenRouter();
+    configureGemini();
     const fetchMock = vi.fn().mockResolvedValue(response({
       questionId: "Q4",
       answer: "Inventory becomes sales and cash after collection.",
@@ -146,9 +145,9 @@ describe("OpenRouter Qwen question-first grading", () => {
     });
 
     expect(evidence).toMatchObject({
-      provider: "openrouter",
+      provider: "gemini",
       pageNumber: 2,
-      answerRegion: { mapping: "qwen-openrouter-vision", x: 0.18, requiresHumanReview: false },
+      answerRegion: { mapping: "gemini-vision", x: 0.18, requiresHumanReview: false },
     });
   });
 
@@ -158,9 +157,9 @@ describe("OpenRouter Qwen question-first grading", () => {
     expect(answerPageTextFallback(page)).toContain("Inventory becomes cash after collection.");
   });
 
-  it("never creates a demo score when OpenRouter is not configured", async () => {
-    delete process.env.OPENROUTER_API_KEY;
-    delete process.env.OPENROUTER_MODEL;
+  it("never creates a demo score when Gemini is not configured", async () => {
+    delete process.env.GEMINI_API_KEY;
+    delete process.env.GEMINI_GRADING_MODEL;
     await expect(evaluateAnswer({
       question,
       answer: "A response.",

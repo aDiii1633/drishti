@@ -1,10 +1,20 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   getHardwareScannerProvider,
   hardwareQualityMessage,
   hardwareStateForQuality,
   simulateHardwareCapture,
 } from "./hardwareScanner";
+
+const originalRealHardwareSetting = process.env.SCANGATE_USE_REAL_HARDWARE;
+
+beforeEach(() => {
+  process.env.SCANGATE_USE_REAL_HARDWARE = "false";
+});
+
+afterEach(() => {
+  process.env.SCANGATE_USE_REAL_HARDWARE = originalRealHardwareSetting;
+});
 
 describe("ScanGate hardware scanner adapter", () => {
   it("uses the development-only provider in the test runtime", async () => {

@@ -23,7 +23,7 @@ import {
   resolveScaleMaxDocumentModel,
 } from "./scalemax";
 import { storageGetBuffer, storageGetSignedUrl } from "./storage";
-import { openRouterStructuredJson } from "./aiGrading";
+import { geminiStructuredJson } from "./aiGrading";
 
 type Grade = {
   questionId: string;
@@ -169,7 +169,7 @@ Return ONLY this JSON shape, with no extra commentary:
 
   let parsed: unknown;
   try {
-    const response = await openRouterStructuredJson({
+    const response = await geminiStructuredJson({
       schemaName: "question_paper_scheme",
       schema: {
         type: "object",

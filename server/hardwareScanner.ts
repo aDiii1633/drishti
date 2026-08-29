@@ -584,8 +584,12 @@ const testProvider = new ScanGateTestProvider();
 
 export function getHardwareScannerProvider(): HardwareScannerProvider {
   const requestedAdapter = process.env.SCANGATE_ADAPTER?.trim().toLowerCase();
+  const realHardwareEnabled =
+    process.env.SCANGATE_USE_REAL_HARDWARE?.trim().toLowerCase() === "true";
   const developmentTestMode =
-    process.env.NODE_ENV !== "production" && getAppMode() !== "real";
+    !realHardwareEnabled &&
+    process.env.NODE_ENV !== "production" &&
+    getAppMode() !== "real";
   if (
     (requestedAdapter === "mock" && process.env.NODE_ENV !== "production") ||
     developmentTestMode

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   captureUsbPreview,
   captureUsbQr,
@@ -10,12 +10,18 @@ import {
 const originalAppMode = process.env.APP_MODE;
 const originalNodeEnv = process.env.NODE_ENV;
 const originalAgentUrl = process.env.SCANGATE_USB_AGENT_URL;
+const originalRealHardwareSetting = process.env.SCANGATE_USE_REAL_HARDWARE;
+
+beforeEach(() => {
+  process.env.SCANGATE_USE_REAL_HARDWARE = "false";
+});
 
 afterEach(() => {
   vi.restoreAllMocks();
   process.env.APP_MODE = originalAppMode;
   process.env.NODE_ENV = originalNodeEnv;
   process.env.SCANGATE_USB_AGENT_URL = originalAgentUrl;
+  process.env.SCANGATE_USE_REAL_HARDWARE = originalRealHardwareSetting;
 });
 
 describe("ScanGate USB agent gateway", () => {
@@ -46,7 +52,8 @@ describe("ScanGate USB agent gateway", () => {
 
   it("reads a real loopback agent status and never returns raw device details", async () => {
     process.env.NODE_ENV = "development";
-    process.env.APP_MODE = "real";
+    process.env.APP_MODE = "demo";
+    process.env.SCANGATE_USE_REAL_HARDWARE = "true";
     process.env.SCANGATE_USB_AGENT_URL = "http://127.0.0.1:57931";
     vi.stubGlobal(
       "fetch",

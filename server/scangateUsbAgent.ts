@@ -77,7 +77,13 @@ function statusFor(
 }
 
 function isDevelopmentTestAdapter() {
-  return process.env.NODE_ENV !== "production" && getAppMode() !== "real";
+  const realHardwareEnabled =
+    process.env.SCANGATE_USE_REAL_HARDWARE?.trim().toLowerCase() === "true";
+  return (
+    !realHardwareEnabled &&
+    process.env.NODE_ENV !== "production" &&
+    getAppMode() !== "real"
+  );
 }
 
 function agentUrl() {

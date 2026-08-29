@@ -233,6 +233,20 @@ select:focus-visible {
   color: var(--color-primary-strong);
   box-shadow: inset 3px 0 0 var(--color-primary);
 }
+.drishti-flip-link__letter {
+  transition: transform 300ms var(--ease-out);
+}
+.drishti-flip-link__bottom {
+  transform: translateY(110%);
+}
+.drishti-flip-link:hover .drishti-flip-link__top,
+.drishti-flip-link:focus-visible .drishti-flip-link__top {
+  transform: translateY(-110%);
+}
+.drishti-flip-link:hover .drishti-flip-link__bottom,
+.drishti-flip-link:focus-visible .drishti-flip-link__bottom {
+  transform: translateY(0);
+}
 @media (prefers-reduced-motion: no-preference) {
   .float-soft {
     animation: float-soft 7s ease-in-out infinite;
@@ -242,6 +256,19 @@ select:focus-visible {
   }
   .pulse-dot {
     animation: pulse-dot 2s ease-in-out infinite;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .drishti-flip-link__letter {
+    transition: none;
+  }
+  .drishti-flip-link:hover .drishti-flip-link__top,
+  .drishti-flip-link:focus-visible .drishti-flip-link__top {
+    transform: none;
+  }
+  .drishti-flip-link:hover .drishti-flip-link__bottom,
+  .drishti-flip-link:focus-visible .drishti-flip-link__bottom {
+    transform: translateY(110%);
   }
 }
 @keyframes float-soft {
