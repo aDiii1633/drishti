@@ -24,17 +24,37 @@ export function hashPassword(password: string) {
   ].join("$");
 }
 
-export function verifyPassword(password: string, storedHash: string | null | undefined) {
+export function verifyPassword(
+  password: string,
+  storedHash: string | null | undefined
+) {
   if (!storedHash) return false;
-  const [algorithm, cost, blockSize, parallelization, encodedSalt, encodedKey] = storedHash.split("$");
+  const [algorithm, cost, blockSize, parallelization, encodedSalt, encodedKey] =
+    storedHash.split("$");
   if (algorithm !== "scrypt" || !encodedSalt || !encodedKey) return false;
   const salt = Buffer.from(encodedSalt, "base64url");
   const expectedKey = Buffer.from(encodedKey, "base64url");
   if (!salt.length || expectedKey.length !== KEY_LENGTH) return false;
-  const actualKey = scryptSync(password, salt, expectedKey.length, {
-    N: Number(cost),
-    r: Number(blockSize),
-    p: Number(parallelization),
-  });
-  return timingSafeEqual(actualKey, expectedKey);
+  // A corrupt or hand-edited row must fail closed. Without these checks a
+  // non-numeric cost reached scryptSync as NaN, which throws and surfaced as an
+  // unhandled 500 on the login route instead of a clean credential rejection.
+  const n = Number(cost);
+  const r = Number(blockSize);
+  const p = Number(parallelization);
+  const isPositiveInteger = (value: number) =>
+    Number.isInteger(value) && value > 0;
+  if (!isPositiveInteger(n) || !isPositiveInteger(r) || !isPositiveInteger(p))
+    return false;
+  // scryptSync also throws when N is not a power of two or memory would exceed
+  // the default limit, so keep the whole derivation inside the guard.
+  try {
+    const actualKey = scryptSync(password, salt, expectedKey.length, {
+      N: n,
+      r,
+      p,
+    });
+    return timingSafeEqual(actualKey, expectedKey);
+  } catch {
+    return false;
+  }
 }

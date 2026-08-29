@@ -33,6 +33,7 @@ import {
   sourceArtifactRows,
 } from "./documentArtifacts";
 import { issueAuthenticatedRoleSession } from "./roleAuth";
+import { createRateLimiter, requestAddress } from "./rateLimit";
 import { DRISHTI_ROLES, type SchemeQuestion } from "../shared/drishti";
 import {
   getRoleSessionCookieOptions,
@@ -64,10 +65,10 @@ import {
 } from "./adminWorkspace";
 import {
   evaluateAnswer,
-  OPENROUTER_EVIDENCE_PROMPT_VERSION,
-  OPENROUTER_GRADING_PROMPT_VERSION,
-  OPENROUTER_GRADING_MODEL,
-  getOpenRouterGradingConfig,
+  GEMINI_EVIDENCE_PROMPT_VERSION,
+  GEMINI_GRADING_PROMPT_VERSION,
+  GEMINI_GRADING_MODEL,
+  getGeminiGradingConfig,
   prepareQuestionEvidence,
 } from "./aiGrading";
 import {
@@ -106,12 +107,43 @@ import {
   setDevelopmentUsbScannerState,
   USB_SCANNER_STATES,
 } from "./scangateUsbAgent";
-import {
-  decodeQrWithScanGate,
-  QrDecoderUnavailableError,
-} from "./qrDecoder";
+import { decodeQrWithScanGate, QrDecoderUnavailableError } from "./qrDecoder";
 
 const roleInput = z.enum(DRISHTI_ROLES);
+
+// Password verification runs scrypt (N=16384), so an unthrottled login route is
+// both a credential-guessing oracle and a CPU-exhaustion vector. The account key
+// is the primary guard because it stays correct behind a proxy or NAT; the
+// address key is deliberately looser so one school's shared egress IP cannot
+// lock out its whole staff. See server/rateLimit.ts for the scaling caveat.
+const loginAccountLimiter = createRateLimiter({
+  limit: 8,
+  windowMs: 15 * 60_000,
+});
+const loginAddressLimiter = createRateLimiter({
+  limit: 40,
+  windowMs: 15 * 60_000,
+});
+// Re-check intake is unauthenticated and takes a printed verification token, so
+// it is throttled to stop bulk token guessing against finalized bundles.
+const recheckRequestLimiter = createRateLimiter({
+  limit: 10,
+  windowMs: 60 * 60_000,
+});
+
+function enforceRateLimit(
+  limiter: ReturnType<typeof createRateLimiter>,
+  key: string,
+  message: string
+) {
+  const decision = limiter.check(key);
+  if (!decision.allowed) {
+    throw new TRPCError({
+      code: "TOO_MANY_REQUESTS",
+      message: `${message} Try again in ${decision.retryAfterSeconds} second${decision.retryAfterSeconds === 1 ? "" : "s"}.`,
+    });
+  }
+}
 const fileInput = z.object({
   name: z.string().trim().min(1).max(200),
   base64: z.string().min(1).max(34_000_000),
@@ -167,7 +199,16 @@ const schemeQuestionInput = z.object({
 
 async function database() {
   const db = await getDb();
-  if (!db) throw new Error("The database is unavailable.");
+  // A plain Error here became an INTERNAL_SERVER_ERROR, which the tRPC error
+  // formatter masks as "Something went wrong." A missing database is an
+  // operational state the desk can act on (and /api/v1/health already reports
+  // it), so it gets an accurate code and a message that survives masking.
+  if (!db)
+    throw new TRPCError({
+      code: "SERVICE_UNAVAILABLE",
+      message:
+        "The Drishti database is unavailable. Check the service and try again.",
+    });
   return db;
 }
 
@@ -473,7 +514,7 @@ async function flagPossibleModelScoreBias(
     .where(
       and(
         eq(evaluations.questionId, input.questionId),
-        eq(evaluations.aiProvider, "openrouter"),
+        eq(evaluations.aiProvider, "gemini"),
         eq(evaluations.aiMarks, input.marks)
       )
     )
@@ -634,7 +675,14 @@ async function requireBundleAccess(
   if (process.env.NODE_ENV === "test" && !userId)
     return {} as Awaited<ReturnType<typeof requireBundle>>;
   const bundle = await requireBundle(db, bundleId);
-  if (!userId) return bundle;
+  // Every session minted by issueAuthenticatedRoleSession carries a userId. A
+  // token without one cannot be scoped to an owner, assignment, school, or
+  // student record, so it must never fall through to unrestricted access.
+  if (!userId)
+    throw new TRPCError({
+      code: "UNAUTHORIZED",
+      message: "Sign in again to access examination papers.",
+    });
   if (role === "admin") return bundle;
 
   if (role === "operator") {
@@ -697,7 +745,7 @@ async function ensureQuestionEvaluations(
     .where(eq(evaluations.bundleId, bundle.id));
 }
 
-async function prepareOpenRouterEvidence(input: {
+async function prepareGeminiEvidence(input: {
   db: Awaited<ReturnType<typeof database>>;
   bundle: Awaited<ReturnType<typeof requireBundle>>;
   question: SchemeQuestion;
@@ -719,7 +767,7 @@ async function prepareOpenRouterEvidence(input: {
       .orderBy(desc(answerExtractions.updatedAt))
       .limit(1)
   )[0];
-  if (existing && existing.provider === "openrouter" && !input.force)
+  if (existing && existing.provider === "gemini" && !input.force)
     return {
       extractionId: existing.id,
       status: "completed" as const,
@@ -727,19 +775,19 @@ async function prepareOpenRouterEvidence(input: {
     };
 
   const pages = await storedAnswerPages(input.db, input.bundle);
-  const config = getOpenRouterGradingConfig();
+  const config = getGeminiGradingConfig();
   const extractionId = existing?.id ?? nanoid(16);
   const generationId = nanoid(16);
   await input.db.insert(generations).values({
     id: generationId,
     bundleId: input.bundle.id,
-    provider: "openrouter",
+    provider: "gemini",
     model: config.model,
     status: "queued",
     output: {
       stage: "reading-answer",
       questionId: input.question.id,
-      promptVersion: OPENROUTER_EVIDENCE_PROMPT_VERSION,
+      promptVersion: GEMINI_EVIDENCE_PROMPT_VERSION,
     },
   });
   if (!existing)
@@ -753,11 +801,11 @@ async function prepareOpenRouterEvidence(input: {
       language: input.language,
       confidence: 0,
       answerRegion: {
-        mapping: "qwen-openrouter-vision",
+        mapping: "gemini-vision",
         status: "reading-answer",
       },
       status: "processing",
-      provider: "openrouter",
+      provider: "gemini",
     });
   else
     await input.db
@@ -768,11 +816,11 @@ async function prepareOpenRouterEvidence(input: {
         structuredText: "",
         confidence: 0,
         answerRegion: {
-          mapping: "qwen-openrouter-vision",
+          mapping: "gemini-vision",
           status: "reading-answer",
         },
         status: "processing",
-        provider: "openrouter",
+        provider: "gemini",
         externalJobId: null,
         error: null,
       })
@@ -794,9 +842,9 @@ async function prepareOpenRouterEvidence(input: {
         confidence: evidence.confidence,
         answerRegion: {
           ...evidence.answerRegion,
-          source: "qwen-openrouter-vision",
+          source: "gemini-vision",
           warnings: evidence.warnings,
-          promptVersion: OPENROUTER_EVIDENCE_PROMPT_VERSION,
+          promptVersion: GEMINI_EVIDENCE_PROMPT_VERSION,
         },
         status: "completed",
         provider: evidence.provider,
@@ -922,7 +970,10 @@ async function visibleBundleIds(
   role: string,
   userId?: number
 ) {
-  if (!userId || role === "admin") return null;
+  // `null` means "no restriction". Only a genuine admin earns that; an
+  // identity-less session gets an empty list rather than the whole corpus.
+  if (role === "admin") return null;
+  if (!userId) return process.env.NODE_ENV === "test" ? null : [];
   if (role === "operator") {
     const rows = await db
       .select({ id: bundles.id })
@@ -1083,6 +1134,18 @@ export const appRouter = router({
       .mutation(async ({ ctx, input }) => {
         const db = await database();
         const normalizedLoginId = input.loginId.toLowerCase();
+        // Throttle before touching the database or running scrypt, so a flood
+        // of guesses cannot be used to exhaust CPU or probe which ids exist.
+        enforceRateLimit(
+          loginAddressLimiter,
+          requestAddress(ctx.req),
+          "Too many sign-in attempts from this network."
+        );
+        enforceRateLimit(
+          loginAccountLimiter,
+          normalizedLoginId,
+          "Too many sign-in attempts for this user ID."
+        );
         const user = (
           await db
             .select()
@@ -1141,6 +1204,9 @@ export const appRouter = router({
             ? { ...cookieOptions, maxAge: 30 * 24 * 60 * 60 * 1000 }
             : cookieOptions
         );
+        // A proven-legitimate sign-in clears the account counter so an attacker
+        // spraying a real user's id cannot lock that user out of their own desk.
+        loginAccountLimiter.reset(normalizedLoginId);
         await audit(
           "system",
           input.role,
@@ -2037,9 +2103,8 @@ export const appRouter = router({
         );
         if (session.capture) return hardwareCaptureView(session);
         const provider = getHardwareScannerProvider();
-        let pending:
-          | { state: HardwareScannerState; message: string }
-          | null = null;
+        let pending: { state: HardwareScannerState; message: string } | null =
+          null;
         try {
           if (provider.captureStatus) {
             pending = await provider.captureStatus({
@@ -3650,7 +3715,7 @@ export const appRouter = router({
             code: "BAD_REQUEST",
             message: "This question is not in the attached marking scheme.",
           });
-        return prepareOpenRouterEvidence({
+        return prepareGeminiEvidence({
           db,
           bundle,
           question,
@@ -3753,7 +3818,7 @@ export const appRouter = router({
             .limit(1)
         )[0];
         if (!extraction) {
-          const prepared = await prepareOpenRouterEvidence({
+          const prepared = await prepareGeminiEvidence({
             db,
             bundle,
             question,
@@ -3775,7 +3840,7 @@ export const appRouter = router({
               "AI evaluation could not be completed. Retry or continue with manual grading.",
           });
         const evidenceVersion = `${extraction.id}:${extraction.updatedAt.getTime()}:${extraction.confidence}`;
-        const cacheKey = `${OPENROUTER_GRADING_PROMPT_VERSION}:${OPENROUTER_GRADING_MODEL}:${input.bundleId}:${question.id}:${questionSetVersion(bundle.schemeId)}:${evidenceVersion}`;
+        const cacheKey = `${GEMINI_GRADING_PROMPT_VERSION}:${GEMINI_GRADING_MODEL}:${input.bundleId}:${question.id}:${questionSetVersion(bundle.schemeId)}:${evidenceVersion}`;
         const priorOutput = existing?.aiOutput;
         const priorCacheKey =
           priorOutput &&
@@ -3786,7 +3851,7 @@ export const appRouter = router({
         if (
           existing?.aiMarks !== null &&
           existing?.aiMarks !== undefined &&
-          existing.aiProvider === "openrouter" &&
+          existing.aiProvider === "gemini" &&
           priorCacheKey === cacheKey &&
           !input.force
         )
@@ -3814,17 +3879,17 @@ export const appRouter = router({
                 .mappingConfidence
             : undefined;
         const generationId = nanoid(16);
-        const config = getOpenRouterGradingConfig();
+        const config = getGeminiGradingConfig();
         await db.insert(generations).values({
           id: generationId,
           bundleId: bundle.id,
-          provider: "openrouter",
+          provider: "gemini",
           model: config.model,
           status: "queued",
           output: {
             stage: "applying-rubric",
             questionId: question.id,
-            promptVersion: OPENROUTER_GRADING_PROMPT_VERSION,
+            promptVersion: GEMINI_GRADING_PROMPT_VERSION,
           },
         });
         let result;
@@ -3912,7 +3977,7 @@ export const appRouter = router({
             aiProvider: result.provider,
             aiModel: result.model,
             aiEvaluatedAt: new Date(),
-            promptVersion: OPENROUTER_GRADING_PROMPT_VERSION,
+            promptVersion: GEMINI_GRADING_PROMPT_VERSION,
             rubricVersion: questionSetVersion(bundle.schemeId),
             evaluationVersion: (existing?.evaluationVersion ?? 0) + 1,
             requiresHumanReview: grade.requiresHumanReview,
@@ -3939,7 +4004,7 @@ export const appRouter = router({
               aiProvider: result.provider,
               aiModel: result.model,
               aiEvaluatedAt: new Date(),
-              promptVersion: OPENROUTER_GRADING_PROMPT_VERSION,
+              promptVersion: GEMINI_GRADING_PROMPT_VERSION,
               rubricVersion: questionSetVersion(bundle.schemeId),
               evaluationVersion: (existing?.evaluationVersion ?? 0) + 1,
               requiresHumanReview: grade.requiresHumanReview,
@@ -4223,6 +4288,15 @@ export const appRouter = router({
       )
       .mutation(async ({ ctx, input }) => {
         const db = await database();
+        // Unauthenticated callers submit a printed verification token here, so
+        // throttle by address to stop bulk guessing of other students' tokens.
+        if (ctx.roleSession?.role !== "student") {
+          enforceRateLimit(
+            recheckRequestLimiter,
+            requestAddress(ctx.req),
+            "Too many re-check requests from this network."
+          );
+        }
         const signedInStudent =
           ctx.roleSession?.role === "student"
             ? (
