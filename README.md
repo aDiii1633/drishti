@@ -1,5 +1,6 @@
 # DRISHTI
 
+**RESEARCH PAPER - https://drive.google.com/drive/folders/1qC8u5fQVW0AVOdzlyC_3yE4utWnCbWDM?usp=drive_link **
 **Intelligent On-Screen Marking System**
 
 DRISHTI is an on-screen marking (OSM) platform for examination boards and evaluation centres. It carries a physical answer sheet from scan intake through clarity review, rubric-bound marking, AI-assisted grading and moderation, to a QR-verifiable finalized record.
