@@ -4,7 +4,7 @@
 
 DRISHTI is an on-screen marking (OSM) platform for examination boards and evaluation centres. It carries a physical answer sheet from scan intake through clarity review, rubric-bound marking, AI-assisted grading and moderation, to a QR-verifiable finalized record.
 
-[![Research Paper](https://img.shields.io/badge/Research_Paper-Read-2f6f95?style=for-the-badge)](https://drive.google.com/file/d/1HmCPa5SK_tZPnvIFK1MQLxnkW6cJ1W1N/view)
+[![Research Paper](https://drive.google.com/drive/folders/1qC8u5fQVW0AVOdzlyC_3yE4utWnCbWDM?usp=drive_link)
 [![Tests](https://img.shields.io/badge/tests-100_passing-2f7f62?style=flat-square)](#testing)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178c6?style=flat-square)](https://www.typescriptlang.org/)
 [![Node](https://img.shields.io/badge/Node-20%2B-339933?style=flat-square)](https://nodejs.org/)
