@@ -75,10 +75,13 @@ const ROLE_CARDS: RoleCard[] = [
   },
 ];
 
+/** See the matching flag in App.tsx: a demo build never renders credential UI. */
+const DEMO_BUILD = import.meta.env.VITE_DEMO_ACCESS_MODE === "true";
+
 export default function RoleSelection() {
   const [, setLocation] = useLocation();
   const utils = trpc.useUtils();
-  const access = trpc.session.access.useQuery();
+  const access = trpc.session.access.useQuery(undefined, { retry: false });
   const [pending, setPending] = useState<DrishtiRole | null>(null);
   const demoEntry = trpc.session.demoEntry.useMutation({
     onSuccess: async (_result, variables) => {
@@ -88,15 +91,24 @@ export default function RoleSelection() {
     },
     onError: error => {
       setPending(null);
-      toast.error(error.message);
+      // A dead API returns a non-JSON proxy page, whose parse error is useless
+      // to a person standing in front of a demo. Say what actually went wrong.
+      toast.error(
+        /json|fetch|failed|network/i.test(error.message)
+          ? "The DRISHTI backend is unreachable, so the workspace cannot open."
+          : error.message
+      );
     },
   });
 
-  const demoAccess = access.data?.demoAccess === true;
-  // Only offer desks that have an active profile behind them.
-  const cards = demoAccess
-    ? ROLE_CARDS.filter(card => access.data?.roles.includes(card.role))
+  const demoAccess = DEMO_BUILD || access.data?.demoAccess === true;
+  const availableRoles = access.data?.roles;
+  // Only narrow to desks with an active profile once the server has told us
+  // which those are; otherwise offer all of them rather than an empty screen.
+  const cards = availableRoles?.length
+    ? ROLE_CARDS.filter(card => availableRoles.includes(card.role))
     : ROLE_CARDS;
+  const loading = !DEMO_BUILD && access.isLoading;
 
   return (
     <main className="grain min-h-screen bg-[#f8fcff] px-5 py-8 text-[#163044] sm:px-8 lg:px-12">
@@ -142,7 +154,7 @@ export default function RoleSelection() {
             </span>
           </div>
 
-          {access.isLoading ? (
+          {loading ? (
             <div
               className="mt-12 grid place-items-center py-16"
               role="status"

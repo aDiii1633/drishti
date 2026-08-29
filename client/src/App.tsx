@@ -54,9 +54,19 @@ function RouteFallback() {
   );
 }
 
+/**
+ * Build-time demo flag. The server still decides whether a role may actually be
+ * entered; this only settles which screen a demo build shows, so the role screen
+ * appears immediately instead of waiting on — or falling back from — an API call.
+ * Without it an unreachable backend renders the credential screen, which is the
+ * one thing a demo build must never show.
+ */
+const DEMO_BUILD = import.meta.env.VITE_DEMO_ACCESS_MODE === "true";
+
 /** Demo access mode opens on the role screen; otherwise the marketing landing. */
 function Entry() {
-  const access = trpc.session.access.useQuery();
+  const access = trpc.session.access.useQuery(undefined, { enabled: !DEMO_BUILD });
+  if (DEMO_BUILD) return <RoleSelection />;
   if (access.isLoading) return <RouteFallback />;
   return access.data?.demoAccess ? <RoleSelection /> : <Landing />;
 }
@@ -67,9 +77,9 @@ function Entry() {
  * further code changes.
  */
 function CredentialLogin({ role }: { role?: DrishtiRole }) {
-  const access = trpc.session.access.useQuery();
+  const access = trpc.session.access.useQuery(undefined, { enabled: !DEMO_BUILD });
   const [, setLocation] = useLocation();
-  const demoAccess = access.data?.demoAccess === true;
+  const demoAccess = DEMO_BUILD || access.data?.demoAccess === true;
   useEffect(() => {
     if (demoAccess) setLocation("/role-selection");
   }, [demoAccess, setLocation]);
