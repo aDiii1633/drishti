@@ -136,3 +136,5 @@ client/public/__manus__/version.json
 
 # Local capture/debug artifacts (ESP32 previews, calibration frames)
 .artifacts/
+
+.vercel
