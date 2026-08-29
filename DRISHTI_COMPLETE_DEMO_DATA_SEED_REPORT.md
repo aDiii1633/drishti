@@ -85,7 +85,7 @@ All seeded demo accounts use the local-only `DRISHTI_DEMO_PASSWORD` value. Prima
 The integrity check reports 5 schools, 30 students, 5 papers, 25 bundles, 5 evaluators, 10 assignments, 20 evaluations, 54 stored artifacts, 1 re-check request, and zero orphan links.
 
 ## 29. Live Workflow Validation
-The existing lifecycle test passes signed QR resolution, scanner capture, storage persistence, admin assignment, exact school isolation, evaluator visibility, and the real Sarvam OCR configuration path. Without `SARVAM_API_KEY`, OCR fails with the configured server-side error rather than a fake result.
+The existing lifecycle test passes signed QR resolution, scanner capture, storage persistence, admin assignment, exact school isolation, and evaluator visibility. Gemini grading is a real server-side path when configured; missing provider configuration fails with the configured server-side error rather than a fake result.
 
 ## 30. Verification Commands
 `pnpm check`, `pnpm test`, `pnpm build`, `pnpm test:demo-integrity`, and `pnpm test:demo-lifecycle` pass. Run `pnpm data:clear-demo` followed by `pnpm data:seed-demo` to reset and repopulate only the local demo dataset.

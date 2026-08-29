@@ -133,3 +133,6 @@ local-storage/
 # Manus version file (auto-generated, not part of source)
 client/public/__manus__/version.json
 .project-config.json
+
+# Local capture/debug artifacts (ESP32 previews, calibration frames)
+.artifacts/

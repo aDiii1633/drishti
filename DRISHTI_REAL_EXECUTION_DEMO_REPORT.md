@@ -39,15 +39,9 @@ document record stores the resulting key and URL.
 No processing rows are seeded. Capture, submission, assignment, OCR, grading,
 and human submission are the same production mutations.
 
-## 9. Real Sarvam
+## 9. Real OCR and AI
 
-Sarvam Vision is the only OCR path. The current local environment has no
-`SARVAM_API_KEY`, so live OCR remains blocked and fails visibly by design.
-
-## 10. Real Grok
-
-xAI is the configured grading path. The current local environment has no
-`XAI_API_KEY`, so live grading remains blocked until that server secret is set.
+The repository contains a Gemini question-first evidence and grading path. OCR/answer extraction is a separate configured stage; the local code does not claim a built-in handwriting OCR engine. Missing provider configuration fails visibly by design.
 
 ## 11. Real AI Grading
 
@@ -136,8 +130,7 @@ and its signed QR are seeded.
 
 ## 27. EXACTLY WHAT IS STILL BLOCKED
 
-Live Sarvam Vision and xAI/Grok execution require their server-side API keys.
-No credential was present in this workspace, so those calls were not faked.
+Physical ESP32 capture requires the external ScanGate firmware/service and a connected, handshaking device. The current 2026-08-28 serial-port probe did not list a matching COM17 device. Live Gemini execution requires the server-side key and network access; those credentials are never returned to the browser.
 
 ## 28. FINAL STATUS
 
