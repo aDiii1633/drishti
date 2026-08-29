@@ -1,7 +1,9 @@
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { lazy, Suspense } from "react";
-import { Route, Switch } from "wouter";
+import { lazy, Suspense, useEffect } from "react";
+import { Route, Switch, useLocation } from "wouter";
+import type { DrishtiRole } from "@shared/drishti";
+import { trpc } from "@/lib/trpc";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Protected from "./pages/Protected";
@@ -32,7 +34,9 @@ const ExamSetup = lazy(() => import("./pages/ExamSetup"));
 const AdminSchools = lazy(() => import("./pages/AdminSchools"));
 const AdminSchoolDetails = lazy(() => import("./pages/AdminSchoolDetails"));
 const AdminEvaluators = lazy(() => import("./pages/AdminEvaluators"));
-const AdminEvaluatorDetails = lazy(() => import("./pages/AdminEvaluatorDetails"));
+const AdminEvaluatorDetails = lazy(
+  () => import("./pages/AdminEvaluatorDetails")
+);
 const AdminAnswerSheets = lazy(() => import("./pages/AdminAnswerSheets"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const PasswordChange = lazy(() => import("./pages/PasswordChange"));
@@ -50,31 +54,64 @@ function RouteFallback() {
   );
 }
 
+/** Demo access mode opens on the role screen; otherwise the marketing landing. */
+function Entry() {
+  const access = trpc.session.access.useQuery();
+  if (access.isLoading) return <RouteFallback />;
+  return access.data?.demoAccess ? <RoleSelection /> : <Landing />;
+}
+
+/**
+ * Credential screens stay in the codebase but are unreachable while demo access
+ * is enabled, so turning DEMO_ACCESS_MODE off restores real sign-in with no
+ * further code changes.
+ */
+function CredentialLogin({ role }: { role?: DrishtiRole }) {
+  const access = trpc.session.access.useQuery();
+  const [, setLocation] = useLocation();
+  const demoAccess = access.data?.demoAccess === true;
+  useEffect(() => {
+    if (demoAccess) setLocation("/role-selection");
+  }, [demoAccess, setLocation]);
+  if (access.isLoading || demoAccess) return <RouteFallback />;
+  return role ? <RoleLogin role={role} /> : <Login />;
+}
+
 function Router() {
   // make sure to consider if you need authentication for certain routes
   return (
     <Switch>
-      <Route path={"/"} component={Landing} />
+      <Route path={"/"} component={Entry} />
       <Route path={"/role-selection"} component={RoleSelection} />
-      <Route path={"/login"} component={Login} />
-      <Route path={"/admin/login"}>{() => <RoleLogin role="admin" />}</Route>
-      <Route path={"/evaluator/login"}>
-        {() => <RoleLogin role="evaluator" />}
+      <Route path={"/login"}>{() => <CredentialLogin />}</Route>
+      <Route path={"/admin/login"}>
+        {() => <CredentialLogin role="admin" />}
       </Route>
-      <Route path={"/school-admin/login"}>{() => <RoleLogin role="school_admin" />}</Route>
-      <Route path={"/student/login"}>{() => <RoleLogin role="student" />}</Route>
+      <Route path={"/evaluator/login"}>
+        {() => <CredentialLogin role="evaluator" />}
+      </Route>
+      <Route path={"/school-admin/login"}>
+        {() => <CredentialLogin role="school_admin" />}
+      </Route>
+      <Route path={"/student/login"}>
+        {() => <CredentialLogin role="student" />}
+      </Route>
       <Route path={"/operator/login"}>
-        {() => <RoleLogin role="operator" />}
+        {() => <CredentialLogin role="operator" />}
       </Route>
       <Route path={"/scanner/login"}>
-        {() => <RoleLogin role="operator" />}
+        {() => <CredentialLogin role="operator" />}
       </Route>
       <Route path={"/photographer/login"}>
-        {() => <RoleLogin role="operator" />}
+        {() => <CredentialLogin role="operator" />}
       </Route>
       <Route path={"/verify/:token"} component={QrVerify} />
       <Route path={"/password-change"}>
-        {() => <Protected bare><PasswordChange /></Protected>}
+        {() => (
+          <Protected bare>
+            <PasswordChange />
+          </Protected>
+        )}
       </Route>
       <Route path={"/dashboard"}>
         {() => (
@@ -307,7 +344,13 @@ function Router() {
           </Protected>
         )}
       </Route>
-      <Route path={"/school-admin"}>{() => <Protected role="school_admin"><SchoolAdminDashboard /></Protected>}</Route>
+      <Route path={"/school-admin"}>
+        {() => (
+          <Protected role="school_admin">
+            <SchoolAdminDashboard />
+          </Protected>
+        )}
+      </Route>
       <Route path={"/student"}>
         {() => (
           <Protected role="student">

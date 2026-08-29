@@ -102,7 +102,7 @@ Dotted edges are planned integrations, not current behaviour.
 | **API** | tRPC (typed, end-to-end) plus a small public REST surface under `/api/v1` |
 | **Image Processing** | pdf.js rendering, canvas-based variance-of-Laplacian sharpness scoring (browser-side) |
 | **Computer Vision** | No in-repository CV pipeline — OCR, deskew and enhancement are owned by the external ScanGate service |
-| **AI / ML** | Google Gemini (question-first vision grading), schema-validated with Zod and retried on invalid output |
+| **AI / ML** | Suprsonic `/v1/documents/extract` (question-first structured grading), schema-validated with Zod and retried on invalid output. Gemini remains available for image evidence mapping and the in-app assistant, which Suprsonic does not support |
 | **Hardware** | ESP32-S3 over CH343 USB-UART, `serialport` bridge (standalone CLI, not a server dependency) |
 | **Testing** | Vitest (100 tests), Playwright available for future E2E |
 | **Deployment** | Vite production build plus esbuild server bundle. See [Deployment](#deployment) |
@@ -198,13 +198,14 @@ Legend: 🟢 Implemented · 🟡 In Development · 🔵 Planned
 | Frontend | 🟢 | Role-isolated workspaces; production build verified |
 | Backend / API | 🟢 | Express + tRPC; 75 procedures, each with an explicit auth level |
 | Database | 🟢 | Drizzle + libSQL, 13 migrations |
-| Authentication | 🟢 | scrypt hashes, signed sessions, rate-limited sign-in |
+| Authentication | 🟢 | scrypt hashes, signed sessions, rate-limited sign-in. Bypassed when `DEMO_ACCESS_MODE=true` |
 | Authorization | 🟢 | Backend-enforced, verified against a running server |
 | Storage | 🟡 | Works and is traversal-safe; local disk is not durable, and the serving route is not yet session-checked |
 | Scan intake | 🟢 | PDF, multi-image and browser camera |
 | Clarity gate | 🟡 | Runs browser-side; the server validates its shape, not its truthfulness |
 | OCR / deskew / enhancement | 🔵 | Not implemented in this repository |
-| AI grading | 🟢 | Requires a configured `GEMINI_API_KEY` |
+| AI grading | 🟢 | Suprsonic structured extraction; requires `SUPRSONIC_API_KEY` |
+| AI evidence mapping (vision) | 🟡 | Needs `AI_PROVIDER=gemini`; Suprsonic has no image input |
 | Evaluation & moderation | 🟢 | Deterministic marks, automatic deviation detection |
 | QR issuance & verification | 🟢 | Signed, versioned, revocable |
 | Re-check workflow | 🟢 | Student request, admin resolution |
@@ -323,6 +324,22 @@ Wrap the Express app as a serverless handler, then replace the two persistence l
 
 Either option requires provisioning external services. See `docs/DEPLOYMENT.md`.
 
+### Demo Role Access
+
+With `DEMO_ACCESS_MODE=true`, DRISHTI opens on a **Select your role** screen. Choosing Center Admin,
+Evaluator, Scanner, School Admin or Student enters that workspace directly — no email, password, OTP or
+sign-up. **Switch Role** in the sidebar clears the session and returns to the role screen.
+
+Mechanically, `session.demoEntry` looks up the seeded profile for the requested role and issues the *same*
+signed role session a password sign-in would. Every downstream guard, role scope and user-scoped query is
+untouched, so turning the flag off restores real authentication with no code changes — the credential
+screens stay in the repository and simply become reachable again.
+
+> **DEMO ACCESS MODE IS NOT PRODUCTION-GRADE USER AUTHENTICATION.** No identity is verified: anyone who can
+> reach the server can claim any role, including Center Admin. It exists for controlled prototype, hackathon
+> and demonstration environments only. `assertProductionRuntime()` refuses to boot a real production runtime
+> while it is enabled.
+
 ### Required environment variables
 
 | Variable | Purpose | Required for |
@@ -332,7 +349,11 @@ Either option requires provisioning external services. See `docs/DEPLOYMENT.md`.
 | `DATABASE_URL` | Primary database connection | **All modes** |
 | `NODE_ENV` / `PORT` | Runtime mode and listen port | All modes |
 | `APP_MODE`, `DEMO_MODE`, `DEMO_DATABASE_URL`, `DRISHTI_DEMO_PASSWORD` | Demonstration runtime on a separate database | Demo mode |
-| `GEMINI_API_KEY` | Gemini grading and assistant | AI grading |
+| `SUPRSONIC_API_KEY` | Suprsonic structured grading (active AI provider) | AI grading |
+| `AI_PROVIDER` | `suprsonic` (default) or `gemini` | Optional |
+| `SUPRSONIC_BASE_URL` | Override the Suprsonic host | Optional |
+| `DEMO_ACCESS_MODE` | `true` enables credential-free role entry. **Never in production.** | Demo only |
+| `GEMINI_API_KEY` | Image evidence mapping and the in-app assistant, which Suprsonic cannot serve | Vision / assistant |
 | `GEMINI_GRADING_MODEL`, `GEMINI_MODEL`, `GEMINI_BASE_URL` | Model and endpoint selection | Optional |
 | `PUBLIC_APP_URL` | Absolute URLs for stored files behind a proxy | Hosted deploys |
 | `SCANGATE_*` | Capture gateway and USB bridge | Hardware capture |

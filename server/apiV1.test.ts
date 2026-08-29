@@ -59,6 +59,8 @@ describe("Drishti REST API contracts", () => {
   it("reports Gemini grading readiness without exposing the server key", async () => {
     const previousKey = process.env.GEMINI_API_KEY;
     const previousModel = process.env.GEMINI_GRADING_MODEL;
+    const previousProvider = process.env.AI_PROVIDER;
+    process.env.AI_PROVIDER = "gemini";
     process.env.GEMINI_API_KEY = "server-only-test-key";
     process.env.GEMINI_GRADING_MODEL = "gemini-3.6-flash";
     try {
@@ -72,12 +74,44 @@ describe("Drishti REST API contracts", () => {
           ready: true,
         },
       });
-      expect(JSON.stringify(response.body)).not.toContain("server-only-test-key");
+      expect(JSON.stringify(response.body)).not.toContain(
+        "server-only-test-key"
+      );
     } finally {
       if (previousKey === undefined) delete process.env.GEMINI_API_KEY;
       else process.env.GEMINI_API_KEY = previousKey;
       if (previousModel === undefined) delete process.env.GEMINI_GRADING_MODEL;
       else process.env.GEMINI_GRADING_MODEL = previousModel;
+      if (previousProvider === undefined) delete process.env.AI_PROVIDER;
+      else process.env.AI_PROVIDER = previousProvider;
+    }
+  });
+
+  it("reports Suprsonic readiness without exposing the server key", async () => {
+    const previousKey = process.env.SUPRSONIC_API_KEY;
+    const previousProvider = process.env.AI_PROVIDER;
+    process.env.AI_PROVIDER = "suprsonic";
+    process.env.SUPRSONIC_API_KEY = "omk_server_only_test_key";
+    try {
+      const { res, response } = responseRecorder();
+      await registeredHandlers()["GET /api/v1/ai/status"]({}, res);
+      expect(response).toMatchObject({
+        code: 200,
+        body: {
+          provider: "suprsonic",
+          model: "suprsonic/documents-extract",
+          ready: true,
+          evaluationMode: "question-first-text",
+        },
+      });
+      expect(JSON.stringify(response.body)).not.toContain(
+        "omk_server_only_test_key"
+      );
+    } finally {
+      if (previousKey === undefined) delete process.env.SUPRSONIC_API_KEY;
+      else process.env.SUPRSONIC_API_KEY = previousKey;
+      if (previousProvider === undefined) delete process.env.AI_PROVIDER;
+      else process.env.AI_PROVIDER = previousProvider;
     }
   });
 

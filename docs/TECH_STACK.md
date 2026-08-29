@@ -8,7 +8,12 @@
 - Wouter provides client routing; tRPC provides typed application procedures.
 - Drizzle ORM with SQLite/libSQL schema and SQL migrations.
 - Local filesystem storage behind the existing `/manus-storage/*` proxy boundary.
-- Gemini REST API for optional server-side question-first evidence mapping and rubric-bound grading.
+- Suprsonic REST API (`POST /v1/documents/extract`, Bearer auth) as the active AI provider for rubric-bound,
+  schema-validated question-first grading. Centralized in `server/suprsonic.ts`; every AI call routes through
+  `structuredJson()` in `server/aiGrading.ts`.
+- Gemini REST API remains wired for the two capabilities Suprsonic does not offer: image-based answer evidence
+  mapping (`AI_PROVIDER=gemini`) and the tool-calling in-app assistant. Suprsonic accepts text input only and
+  exposes no chat/completion endpoint.
 - `serialport` for the local ScanGate ESP32 USB-UART bridge.
 - Vitest and Playwright packages are available; the committed automated suite is primarily Vitest.
 

@@ -9,8 +9,8 @@ Answer sheet
   -> validation and clarity metadata
   -> local storage adapter / external ScanGate image service
   -> stored answer-booklet pages
-  -> Gemini evidence mapping (optional, when configured)
-  -> Gemini rubric grading (optional, teacher remains final authority)
+  -> Evidence mapping (Gemini vision; requires AI_PROVIDER=gemini)
+  -> Suprsonic rubric grading (active provider, teacher remains final authority)
   -> evaluations and annotations
   -> admin assignment, evaluator review, re-check and QR verification
 ```

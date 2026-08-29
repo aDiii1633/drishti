@@ -33,8 +33,13 @@ import {
   sourceArtifactRows,
 } from "./documentArtifacts";
 import { issueAuthenticatedRoleSession } from "./roleAuth";
+import { isDemoAccessMode } from "./runtimeMode";
 import { createRateLimiter, requestAddress } from "./rateLimit";
-import { DRISHTI_ROLES, type SchemeQuestion } from "../shared/drishti";
+import {
+  DRISHTI_ROLES,
+  type DrishtiRole,
+  type SchemeQuestion,
+} from "../shared/drishti";
 import {
   getRoleSessionCookieOptions,
   getSessionCookieOptions,
@@ -68,7 +73,8 @@ import {
   GEMINI_EVIDENCE_PROMPT_VERSION,
   GEMINI_GRADING_PROMPT_VERSION,
   GEMINI_GRADING_MODEL,
-  getGeminiGradingConfig,
+  getActiveAiConfig,
+  getAiProvider,
   prepareQuestionEvidence,
 } from "./aiGrading";
 import {
@@ -775,13 +781,13 @@ async function prepareGeminiEvidence(input: {
     };
 
   const pages = await storedAnswerPages(input.db, input.bundle);
-  const config = getGeminiGradingConfig();
+  const config = getActiveAiConfig();
   const extractionId = existing?.id ?? nanoid(16);
   const generationId = nanoid(16);
   await input.db.insert(generations).values({
     id: generationId,
     bundleId: input.bundle.id,
-    provider: "gemini",
+    provider: config.provider,
     model: config.model,
     status: "queued",
     output: {
@@ -801,11 +807,12 @@ async function prepareGeminiEvidence(input: {
       language: input.language,
       confidence: 0,
       answerRegion: {
-        mapping: "gemini-vision",
+        mapping:
+          config.provider === "gemini" ? "gemini-vision" : "suprsonic-text",
         status: "reading-answer",
       },
       status: "processing",
-      provider: "gemini",
+      provider: config.provider,
     });
   else
     await input.db
@@ -816,11 +823,12 @@ async function prepareGeminiEvidence(input: {
         structuredText: "",
         confidence: 0,
         answerRegion: {
-          mapping: "gemini-vision",
+          mapping:
+            config.provider === "gemini" ? "gemini-vision" : "suprsonic-text",
           status: "reading-answer",
         },
         status: "processing",
-        provider: "gemini",
+        provider: config.provider,
         externalJobId: null,
         error: null,
       })
@@ -842,7 +850,7 @@ async function prepareGeminiEvidence(input: {
         confidence: evidence.confidence,
         answerRegion: {
           ...evidence.answerRegion,
-          source: "gemini-vision",
+          source: evidence.answerRegion.mapping,
           warnings: evidence.warnings,
           promptVersion: GEMINI_EVIDENCE_PROMPT_VERSION,
         },
@@ -1259,6 +1267,70 @@ export const appRouter = router({
           ctx.roleSession.role,
           "PASSWORD_CHANGED",
           `Staff user ${userId} changed their local password.`
+        );
+        return { session: result.session };
+      }),
+    // Demo role access. Reports whether credential-free entry is enabled and
+    // which roles actually have an active profile behind them, so the role
+    // screen never offers a desk that cannot be entered.
+    access: publicProcedure.query(async () => {
+      if (!isDemoAccessMode())
+        return { demoAccess: false, roles: [] as DrishtiRole[] };
+      const db = await getDb();
+      if (!db) return { demoAccess: true, roles: [] as DrishtiRole[] };
+      const rows = await db
+        .select({ role: users.role })
+        .from(users)
+        .where(eq(users.isActive, true));
+      const available = new Set(rows.map(row => row.role));
+      return {
+        demoAccess: true,
+        roles: DRISHTI_ROLES.filter(role => available.has(role)),
+      };
+    }),
+    // Credential-free role entry for demonstration runtimes. This deliberately
+    // issues the SAME signed role session as a password sign-in, so every
+    // downstream guard, role scope, and user-scoped query keeps working
+    // unchanged. It is not authentication: it proves nothing about the caller.
+    demoEntry: publicProcedure
+      .input(z.object({ role: roleInput }))
+      .mutation(async ({ ctx, input }) => {
+        if (!isDemoAccessMode())
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message:
+              "Demo role access is disabled. Sign in with your DRISHTI credentials.",
+          });
+        const db = await database();
+        const user = (
+          await db
+            .select()
+            .from(users)
+            .where(and(eq(users.role, input.role), eq(users.isActive, true)))
+            // Prefer the seeded demonstration profile when one exists.
+            .orderBy(desc(users.isDemo), users.id)
+            .limit(1)
+        )[0];
+        if (!user)
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: `No active ${input.role} profile exists. Seed demo data before using role entry.`,
+          });
+        // Demo entry must never land on the password-change screen.
+        const result = await issueAuthenticatedRoleSession({
+          ...user,
+          mustChangePassword: false,
+        });
+        ctx.res.cookie(
+          ROLE_SESSION_COOKIE,
+          result.token,
+          getRoleSessionCookieOptions(ctx.req)
+        );
+        await audit(
+          "system",
+          input.role,
+          "DEMO_ROLE_ENTRY",
+          `Credential-free demo role entry as ${input.role} using profile ${user.id}.`
         );
         return { session: result.session };
       }),
@@ -3840,7 +3912,9 @@ export const appRouter = router({
               "AI evaluation could not be completed. Retry or continue with manual grading.",
           });
         const evidenceVersion = `${extraction.id}:${extraction.updatedAt.getTime()}:${extraction.confidence}`;
-        const cacheKey = `${GEMINI_GRADING_PROMPT_VERSION}:${GEMINI_GRADING_MODEL}:${input.bundleId}:${question.id}:${questionSetVersion(bundle.schemeId)}:${evidenceVersion}`;
+        // The provider is part of the key: a cached Gemini grade must not be
+        // served after the deployment switches to Suprsonic, or vice versa.
+        const cacheKey = `${GEMINI_GRADING_PROMPT_VERSION}:${getAiProvider()}:${GEMINI_GRADING_MODEL}:${input.bundleId}:${question.id}:${questionSetVersion(bundle.schemeId)}:${evidenceVersion}`;
         const priorOutput = existing?.aiOutput;
         const priorCacheKey =
           priorOutput &&
@@ -3879,11 +3953,11 @@ export const appRouter = router({
                 .mappingConfidence
             : undefined;
         const generationId = nanoid(16);
-        const config = getGeminiGradingConfig();
+        const config = getActiveAiConfig();
         await db.insert(generations).values({
           id: generationId,
           bundleId: bundle.id,
-          provider: "gemini",
+          provider: config.provider,
           model: config.model,
           status: "queued",
           output: {
