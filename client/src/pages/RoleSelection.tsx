@@ -75,8 +75,9 @@ const ROLE_CARDS: RoleCard[] = [
   },
 ];
 
-/** See the matching flag in App.tsx: a demo build never renders credential UI. */
-const DEMO_BUILD = import.meta.env.VITE_DEMO_ACCESS_MODE === "true";
+/** See the matching flag in App.tsx: a demo build never renders credential UI.
+ *  Defaults ON; set VITE_DEMO_ACCESS_MODE=false to restore credential sign-in. */
+const DEMO_BUILD = import.meta.env.VITE_DEMO_ACCESS_MODE !== "false";
 
 export default function RoleSelection() {
   const [, setLocation] = useLocation();

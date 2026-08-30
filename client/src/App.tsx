@@ -58,10 +58,11 @@ function RouteFallback() {
  * Build-time demo flag. The server still decides whether a role may actually be
  * entered; this only settles which screen a demo build shows, so the role screen
  * appears immediately instead of waiting on — or falling back from — an API call.
- * Without it an unreachable backend renders the credential screen, which is the
- * one thing a demo build must never show.
+ * Defaults ON so the deployed build never shows a sign-in screen even when the
+ * build-time env var doesn't reach it; set VITE_DEMO_ACCESS_MODE=false to restore
+ * real credential sign-in.
  */
-const DEMO_BUILD = import.meta.env.VITE_DEMO_ACCESS_MODE === "true";
+const DEMO_BUILD = import.meta.env.VITE_DEMO_ACCESS_MODE !== "false";
 
 /** Demo access mode opens on the role screen; otherwise the marketing landing. */
 function Entry() {
