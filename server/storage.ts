@@ -12,7 +12,13 @@ import path from "path";
 // Root directory on disk where all uploaded files (and their content-type
 // sidecar files) live. Exported so the storage proxy route can resolve the
 // exact same paths without duplicating the convention.
-export const STORAGE_ROOT = path.resolve(process.cwd(), "local-storage");
+//
+// STORAGE_ROOT env override lets a cloud host point this at a mounted
+// persistent disk (e.g. Render/Railway/Fly volume) so uploads survive a
+// restart or redeploy. Defaults to <project-root>/local-storage for local dev.
+export const STORAGE_ROOT = process.env.STORAGE_ROOT?.trim()
+  ? path.resolve(process.env.STORAGE_ROOT.trim())
+  : path.resolve(process.cwd(), "local-storage");
 
 export function normalizeKey(relKey: string): string {
   if (typeof relKey !== "string" || !relKey.trim() || relKey.includes("\0")) {
