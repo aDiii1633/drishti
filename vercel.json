@@ -6,11 +6,11 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://drishti-api.onrender.com/api/:path*"
+      "destination": "https://drishti-api-roed.onrender.com/api/:path*"
     },
     {
       "source": "/manus-storage/:path*",
-      "destination": "https://drishti-api.onrender.com/manus-storage/:path*"
+      "destination": "https://drishti-api-roed.onrender.com/manus-storage/:path*"
     },
     {
       "source": "/(.*)",

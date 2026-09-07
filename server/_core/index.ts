@@ -12,6 +12,21 @@ import { registerDrishtiApi } from "../apiV1";
 import { serveStatic, setupVite } from "./vite";
 import { ensureDemoData } from "../demoData";
 import { assertProductionRuntime, getAppMode } from "../runtimeMode";
+import { getDb } from "../db";
+import { migrate } from "drizzle-orm/libsql/migrator";
+
+// Apply pending SQL migrations on boot so a fresh cloud database (Render disk,
+// Turso, etc.) has its schema before ensureDemoData() or any request touches it.
+// No-ops when the schema is already current; skipped when no DB is configured.
+async function runMigrations() {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[migrate] no database configured; skipping migrations");
+    return;
+  }
+  await migrate(db, { migrationsFolder: "drizzle" });
+  console.log("[migrate] database schema is up to date");
+}
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -35,6 +50,7 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 async function startServer() {
   assertProductionRuntime();
   console.log(`DRISHTI runtime mode: ${getAppMode()}`);
+  await runMigrations();
   const demo = await ensureDemoData();
   if (demo.enabled) {
     console.log(`Demo mode ${demo.seeded ? "ready" : "waiting for database"}.`);
