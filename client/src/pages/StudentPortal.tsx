@@ -7,7 +7,7 @@ function readable(value: string) {
 
 export default function StudentPortal() {
   const workspace = trpc.student.workspace.useQuery(undefined, {
-    refetchInterval: 5_000,
+    refetchInterval: 30_000,
   });
 
   if (workspace.isLoading)

@@ -3,8 +3,8 @@ import { ArrowRight, CheckCircle2, Gavel, Loader2 } from "lucide-react";
 import { Link } from "wouter";
 
 export default function RecheckerDashboard() {
-  const cases = trpc.deviations.list.useQuery(undefined, { refetchInterval: 5_000 });
-  const requests = trpc.recheckRequests.list.useQuery(undefined, { refetchInterval: 5_000 });
+  const cases = trpc.deviations.list.useQuery(undefined, { refetchInterval: 30_000 });
+  const requests = trpc.recheckRequests.list.useQuery(undefined, { refetchInterval: 30_000 });
   return (
     <div className="mx-auto max-w-6xl">
       <p className="mono-label text-[#2f6f95]">Re-checker workspace</p>

@@ -2,7 +2,7 @@ import { Building2, FileCheck2, Loader2 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 
 export default function SchoolAdminDashboard() {
-  const bundles = trpc.bundles.list.useQuery(undefined, { refetchInterval: 10_000 });
+  const bundles = trpc.bundles.list.useQuery(undefined, { refetchInterval: 30_000 });
   if (bundles.isLoading) return <div className="grid min-h-64 place-items-center"><Loader2 className="animate-spin text-[#2f6f95]" /></div>;
   if (bundles.isError) return <div className="panel rounded-2xl p-6 text-sm text-[#b64c40]">School intake is temporarily unavailable. Refresh to try again.</div>;
   const scanned = bundles.data?.filter(bundle => bundle.processingState !== "saved").length ?? 0;

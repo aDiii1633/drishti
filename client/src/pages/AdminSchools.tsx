@@ -3,7 +3,7 @@ import { Building2, ChevronRight, FileStack, Users } from "lucide-react";
 import { Link } from "wouter";
 
 export default function AdminSchools() {
-  const query = trpc.admin.workspace.schools.useQuery(undefined, { refetchInterval: 5_000 });
+  const query = trpc.admin.workspace.schools.useQuery(undefined, { refetchInterval: 30_000 });
   if (query.isLoading) return <p className="text-sm text-[#6b8190]">Loading schools.</p>;
   if (query.isError) return <p className="text-sm text-[#9a4b3d]">Schools could not be loaded.</p>;
   if (!query.data?.currentSession)

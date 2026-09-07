@@ -4,7 +4,7 @@ import { Link } from "wouter";
 
 export default function EvaluatorDashboard() {
   const papers = trpc.evaluator.assignedPapers.useQuery(undefined, {
-    refetchInterval: 5_000,
+    refetchInterval: 30_000,
   });
   return (
     <div className="mx-auto max-w-6xl">

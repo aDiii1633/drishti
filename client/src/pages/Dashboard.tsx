@@ -33,7 +33,7 @@ function Stat({
 
 export default function Dashboard() {
   const overview = trpc.dashboard.adminOverview.useQuery(undefined, {
-    refetchInterval: 5_000,
+    refetchInterval: 30_000,
   });
   const metrics = overview.data?.metrics;
   return (

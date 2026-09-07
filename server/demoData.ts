@@ -387,7 +387,10 @@ async function seedBundle(
   return (await db.select().from(bundles).where(eq(bundles.id, input.id)).limit(1))[0];
 }
 
-export async function ensureDemoData(): Promise<DemoSeedSummary> {
+export async function ensureDemoData(
+  options: { includeBundles?: boolean } = {}
+): Promise<DemoSeedSummary> {
+  const includeBundles = options.includeBundles ?? true;
   if (!isDemoMode()) return { enabled: false, seeded: false };
   const db = await getDb();
   if (!db) return { enabled: true, seeded: false, reason: "database unavailable" };
@@ -431,6 +434,19 @@ export async function ensureDemoData(): Promise<DemoSeedSummary> {
     const [email, , subject] = evaluatorNames[index]!;
     const evaluator = seededUsers.get(email)!;
     await db.insert(evaluatorProfiles).values({ userId: evaluator.id, subject, centerName: DEMO_CENTER, isDemo: true }).onConflictDoUpdate({ target: evaluatorProfiles.userId, set: { subject, centerName: DEMO_CENTER, isDemo: true, updatedAt: new Date() } });
+  }
+
+  // The 25-bundle loop below generates a PDF per bundle and is the slow part of
+  // the seed (~20-30s on a throttled instance). On boot it runs after the HTTP
+  // port is already open (see server/_core/index.ts) so sign-in and dashboards
+  // are usable within ~2s; this early return serves that first, fast pass.
+  if (!includeBundles) {
+    return {
+      enabled: true,
+      seeded: true,
+      credentials: { emails: demoAccounts().map(account => account.email) },
+      qrPayload: `DRISHTI-INTAKE:${paperRows.get("Mathematics")!.qrToken}`,
+    };
   }
 
   const statePlan: Bundle["processingState"][] = ["completed", "completed", "completed", "submitted", "recheck_required", "grading", "grading", "assigned", "assigned", "assigned", "ready_for_evaluation", "ready_for_evaluation", "saved", "saved", "saved", "saved", "saved", "saved", "saved", "saved", "saved", "saved", "saved", "saved", "saved"];

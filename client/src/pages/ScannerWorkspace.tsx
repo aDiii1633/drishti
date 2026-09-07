@@ -626,17 +626,17 @@ export default function ScannerWorkspace() {
   );
   const history = trpc.bundles.list.useQuery(undefined, {
     enabled: Boolean(capturedBundleId),
-    refetchInterval: 5_000,
+    refetchInterval: 30_000,
   });
   const hardwareConnection = trpc.hardware.status.useQuery(undefined, {
     enabled: source === "hardware",
     retry: false,
-    refetchInterval: source === "hardware" ? 5_000 : false,
+    refetchInterval: source === "hardware" ? 30_000 : false,
   });
   const usbConnection = trpc.hardware.usbStatus.useQuery(undefined, {
     enabled: source === "hardware",
     retry: false,
-    refetchInterval: source === "hardware" ? 2_000 : false,
+    refetchInterval: source === "hardware" ? 10_000 : false,
   });
   const hardwareCapture = trpc.hardware.poll.useQuery(
     { sessionId: hardwareSessionId ?? "00000000-0000-4000-8000-000000000000" },
@@ -646,7 +646,7 @@ export default function ScannerWorkspace() {
       retry: false,
       refetchInterval:
         source === "hardware" && step === 2 && hardwareSessionId
-          ? 2_000
+          ? 10_000
           : false,
     }
   );

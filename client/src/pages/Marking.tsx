@@ -752,7 +752,7 @@ export default function Marking() {
     { id: bundleId },
     {
       enabled: Boolean(bundleId),
-      refetchInterval: isCheckingWorkspace ? 3_000 : false,
+      refetchInterval: isCheckingWorkspace ? 15_000 : false,
     }
   );
   const save = trpc.marking.save.useMutation({

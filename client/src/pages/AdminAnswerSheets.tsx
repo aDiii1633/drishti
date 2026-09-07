@@ -19,7 +19,7 @@ function readable(value: string) {
 
 export default function AdminAnswerSheets({ view }: { view: View }) {
   const [search, setSearch] = useState("");
-  const query = trpc.admin.workspace.answerSheets.useQuery({ view, search: search || undefined }, { refetchInterval: 3_000 });
+  const query = trpc.admin.workspace.answerSheets.useQuery({ view, search: search || undefined }, { refetchInterval: 15_000 });
   if (query.isLoading) return <p className="text-sm text-[#6b8190]">Loading answer sheets.</p>;
   if (query.isError) return <p className="text-sm text-[#9a4b3d]">Answer sheets could not be loaded.</p>;
   const labels = copy[view];

@@ -8,9 +8,9 @@ export default function AdminConsole() {
   const role = session.data?.role;
   const consoleData = trpc.admin.console.useQuery(undefined, {
     enabled: role === "admin",
-    refetchInterval: 5000,
+    refetchInterval: 30_000,
   });
-  const staff = trpc.admin.staff.list.useQuery(undefined, { enabled: role === "admin", refetchInterval: 5000 });
+  const staff = trpc.admin.staff.list.useQuery(undefined, { enabled: role === "admin", refetchInterval: 30_000 });
   const [staffForm, setStaffForm] = useState({ name: "", email: "", role: "operator" as "operator" | "evaluator" | "school_admin", centerName: "", schoolId: "", subject: "", temporaryPassword: "" });
   const createStaff = trpc.admin.staff.create.useMutation({
     onSuccess: () => { toast.success("Staff account created. Share the temporary password securely."); setStaffForm({ name: "", email: "", role: "operator", centerName: "", schoolId: "", subject: "", temporaryPassword: "" }); staff.refetch(); },

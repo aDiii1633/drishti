@@ -51,9 +51,12 @@ async function startServer() {
   assertProductionRuntime();
   console.log(`DRISHTI runtime mode: ${getAppMode()}`);
   await runMigrations();
-  const demo = await ensureDemoData();
+  // Fast pass: accounts, schools, papers, students. Sign-in and dashboards work
+  // as soon as this returns (~1-2s). The slow 25-bundle PDF seed runs after the
+  // port is open so a cold start no longer hangs the health check / SPA for ~30s.
+  const demo = await ensureDemoData({ includeBundles: false });
   if (demo.enabled) {
-    console.log(`Demo mode ${demo.seeded ? "ready" : "waiting for database"}.`);
+    console.log(`Demo mode ${demo.seeded ? "accounts ready" : "waiting for database"}.`);
   }
   const app = express();
   const server = createServer(app);
@@ -88,6 +91,14 @@ async function startServer() {
 
   server.listen(port, () => {
     console.log(`Server running on http://localhost:${port}/`);
+    // Now that the port is open, finish the slow part of the demo seed (25
+    // answer-sheet bundles, one generated PDF each) in the background. Idempotent
+    // and safe to fail — never crash the process over demo fixtures.
+    ensureDemoData()
+      .then(demo => {
+        if (demo.enabled && demo.seeded) console.log("Demo mode ready (bundles seeded).");
+      })
+      .catch(error => console.error("[demo-seed] background bundle seed failed:", error));
   });
 }
 

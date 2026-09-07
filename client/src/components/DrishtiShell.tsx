@@ -251,7 +251,7 @@ export default function DrishtiShell({
   const isAdminWorkspace = session.role === "admin";
   const adminOverview = trpc.dashboard.adminOverview.useQuery(undefined, {
     enabled: isAdminWorkspace,
-    refetchInterval: 3_000,
+    refetchInterval: 20_000,
   });
   const links = linksForSession(session, adminOverview.data?.metrics);
   const groups = navigationGroups(links);

@@ -36,9 +36,9 @@ function draftQuestion(index: number): DraftQuestion {
 }
 
 export default function ExamSetup() {
-  const sessions = trpc.exam.sessions.useQuery(undefined, { refetchInterval: 5_000 });
-  const papers = trpc.exam.papers.useQuery(undefined, { refetchInterval: 5_000 });
-  const schemes = trpc.schemes.list.useQuery(undefined, { refetchInterval: 5_000 });
+  const sessions = trpc.exam.sessions.useQuery(undefined, { refetchInterval: 30_000 });
+  const papers = trpc.exam.papers.useQuery(undefined, { refetchInterval: 30_000 });
+  const schemes = trpc.schemes.list.useQuery(undefined, { refetchInterval: 30_000 });
   const [sessionForm, setSessionForm] = useState({
     name: "",
     code: "",

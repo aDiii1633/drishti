@@ -3,7 +3,7 @@ import { ChevronRight, ClipboardCheck, UserRound } from "lucide-react";
 import { Link } from "wouter";
 
 export default function AdminEvaluators() {
-  const query = trpc.admin.workspace.evaluators.useQuery(undefined, { refetchInterval: 5_000 });
+  const query = trpc.admin.workspace.evaluators.useQuery(undefined, { refetchInterval: 30_000 });
   if (query.isLoading) return <p className="text-sm text-[#6b8190]">Loading evaluators.</p>;
   if (query.isError) return <p className="text-sm text-[#9a4b3d]">Evaluators could not be loaded.</p>;
   if (!query.data?.currentSession)
