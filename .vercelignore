@@ -1,0 +1,6 @@
+render.yaml
+restore-verify.bat
+dev-out.log
+dev-err.log
+dev-server.log
+dev.pid
