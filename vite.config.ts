@@ -77,6 +77,11 @@ function writeToLogFile(source: LogSource, entries: unknown[]) {
 function vitePluginManusDebugCollector(): Plugin {
   return {
     name: "manus-debug-collector",
+    // Dev-only: the collector POSTs to a middleware that exists only under
+    // `vite` (serve). In a build it would inject a <script> that 405s against
+    // static hosting on every page load. `apply: "serve"` keeps it out of
+    // `vite build` regardless of how NODE_ENV is set in the build environment.
+    apply: "serve",
 
     transformIndexHtml(html) {
       if (process.env.NODE_ENV === "production") {

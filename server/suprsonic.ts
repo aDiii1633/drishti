@@ -110,6 +110,8 @@ export async function suprsonicExtract(input: {
         body: JSON.stringify({
           content: clipped ? content.slice(0, MAX_CONTENT_CHARS) : content,
           extraction_prompt: input.instruction,
+          // `schema` is sent as a JSON object; the endpoint rejects a string
+          // with 422 dict_type on ["body","schema"].
           schema: input.schema,
         }),
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
@@ -119,6 +121,23 @@ export async function suprsonicExtract(input: {
       const body = (await response.json().catch(() => null)) as SuprsonicEnvelope | null;
 
       if (!response.ok || body?.success !== true) {
+        // Log the real upstream reason server-side (never the key) so a failing
+        // key / exhausted credits / billing restriction / contract drift is
+        // diagnosable from Render logs instead of only the opaque desk message.
+        // The full body is dumped because provider error shapes vary (e.g. an
+        // RFC7807 `{detail:{title,error_category,...}}` that our envelope type
+        // does not model).
+        let bodySummary = "?";
+        try {
+          bodySummary = JSON.stringify(body)?.slice(0, 600) ?? "null";
+        } catch {
+          bodySummary = "unserializable";
+        }
+        console.error(
+          `[suprsonic] extract failed: status=${response.status} ` +
+            `retriable=${body?.error?.is_retriable ?? "?"} ` +
+            `attempt=${attempt} body=${bodySummary}`
+        );
         const retriable =
           body?.error?.is_retriable === true ||
           response.status === 408 ||
@@ -150,6 +169,14 @@ export async function suprsonicExtract(input: {
         truncated: clipped || body.data?.truncated === true,
       };
     } catch (error) {
+      // A thrown publicFailure() from the block above was already logged with
+      // its real reason; only log here for genuine network/abort/timeout faults.
+      if (!(error instanceof SuprsonicUnavailableError)) {
+        console.error(
+          `[suprsonic] extract network error attempt=${attempt}: ` +
+            `${error instanceof Error ? `${error.name}: ${error.message}` : String(error)}`
+        );
+      }
       lastError = error instanceof Error ? error : publicFailure();
       if (attempt === MAX_ATTEMPTS) break;
       await sleep(400 * attempt);
