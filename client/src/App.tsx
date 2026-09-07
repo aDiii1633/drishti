@@ -64,13 +64,9 @@ function RouteFallback() {
  */
 const DEMO_BUILD = import.meta.env.VITE_DEMO_ACCESS_MODE !== "false";
 
-/** Demo access mode opens on the role screen; otherwise the marketing landing. */
-function Entry() {
-  const access = trpc.session.access.useQuery(undefined, { enabled: !DEMO_BUILD });
-  if (DEMO_BUILD) return <RoleSelection />;
-  if (access.isLoading) return <RouteFallback />;
-  return access.data?.demoAccess ? <RoleSelection /> : <Landing />;
-}
+/** Demo access mode keeps the marketing landing as the homepage; the role
+ *  screen stays one click away at /role-selection (and via the landing CTAs),
+ *  so the original DRISHTI entry journey is preserved in every build mode. */
 
 /**
  * Credential screens stay in the codebase but are unreachable while demo access
@@ -78,7 +74,9 @@ function Entry() {
  * further code changes.
  */
 function CredentialLogin({ role }: { role?: DrishtiRole }) {
-  const access = trpc.session.access.useQuery(undefined, { enabled: !DEMO_BUILD });
+  const access = trpc.session.access.useQuery(undefined, {
+    enabled: !DEMO_BUILD,
+  });
   const [, setLocation] = useLocation();
   const demoAccess = DEMO_BUILD || access.data?.demoAccess === true;
   useEffect(() => {
@@ -92,7 +90,7 @@ function Router() {
   // make sure to consider if you need authentication for certain routes
   return (
     <Switch>
-      <Route path={"/"} component={Entry} />
+      <Route path={"/"} component={Landing} />
       <Route path={"/role-selection"} component={RoleSelection} />
       <Route path={"/login"}>{() => <CredentialLogin />}</Route>
       <Route path={"/admin/login"}>

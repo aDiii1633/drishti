@@ -52,7 +52,6 @@ export function LargeNameFooter() {
               <h2 className="text-sm font-semibold text-[#163044]">Access</h2>
               <ul className="mt-4 space-y-2.5 text-sm text-[#587181]">
                 <li><Link className="hover:text-[#2f6f95]" href="/role-selection">Role entry</Link></li>
-                <li><Link className="hover:text-[#2f6f95]" href="/login">Sign in</Link></li>
               </ul>
             </div>
             <div className="col-span-2 sm:col-span-1">

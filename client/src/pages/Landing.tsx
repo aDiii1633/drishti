@@ -53,7 +53,7 @@ export default function Landing() {
           </a>
         </nav>
         <Link
-          href="/login"
+          href="/role-selection"
           className="press rounded-full bg-[#2f6f95] px-4 py-2.5 text-sm font-medium text-white"
         >
           Enter a desk
@@ -103,7 +103,7 @@ export default function Landing() {
                 className="mt-6 flex flex-wrap items-center justify-center gap-3"
               >
                 <Link
-                  href="/login"
+                  href="/role-selection"
                   className="press flex items-center gap-2 rounded-full bg-[#2f6f95] px-5 py-3.5 text-sm font-semibold text-white"
                 >
                   Start at the control desk <ArrowRight size={16} />
