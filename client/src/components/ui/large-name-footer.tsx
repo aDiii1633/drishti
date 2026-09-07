@@ -9,18 +9,12 @@ export function LargeNameFooter() {
       <div className="mx-auto max-w-7xl">
         <div className="grid gap-10 md:grid-cols-[minmax(0,1.25fr)_minmax(18rem,.75fr)] md:gap-12">
           <div>
-            <Link
-              href="/"
-              className="flex items-center gap-3"
-              aria-label="Drishti home"
-            >
+            <Link href="/" className="flex items-center gap-3" aria-label="Drishti home">
               <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#eaf6fd] text-[#2f6f95]">
                 <Sparkles size={18} strokeWidth={1.8} />
               </span>
               <span>
-                <span className="block font-display text-3xl leading-none">
-                  Drishti
-                </span>
+                <span className="block font-display text-3xl leading-none">Drishti</span>
                 <span className="mono-label mt-1 block text-[#2f6f95]">
                   Examination workspace
                 </span>
@@ -45,49 +39,23 @@ export function LargeNameFooter() {
             </p>
           </div>
 
-          <nav
-            aria-label="Explore Drishti"
-            className="grid grid-cols-2 gap-8 sm:max-w-md sm:grid-cols-3"
-          >
+          <nav aria-label="Explore Drishti" className="grid grid-cols-2 gap-8 sm:max-w-md sm:grid-cols-3">
             <div>
               <h2 className="text-sm font-semibold text-[#163044]">Explore</h2>
               <ul className="mt-4 space-y-2.5 text-sm text-[#587181]">
-                <li>
-                  <a className="hover:text-[#2f6f95]" href="#workflow">
-                    Workflow
-                  </a>
-                </li>
-                <li>
-                  <a className="hover:text-[#2f6f95]" href="#controls">
-                    Controls
-                  </a>
-                </li>
-                <li>
-                  <a className="hover:text-[#2f6f95]" href="#record">
-                    Record
-                  </a>
-                </li>
+                <li><a className="hover:text-[#2f6f95]" href="#workflow">Workflow</a></li>
+                <li><a className="hover:text-[#2f6f95]" href="#controls">Controls</a></li>
+                <li><a className="hover:text-[#2f6f95]" href="#record">Record</a></li>
               </ul>
             </div>
             <div>
               <h2 className="text-sm font-semibold text-[#163044]">Access</h2>
               <ul className="mt-4 space-y-2.5 text-sm text-[#587181]">
-                <li>
-                  <Link className="hover:text-[#2f6f95]" href="/role-selection">
-                    Role entry
-                  </Link>
-                </li>
-                <li>
-                  <Link className="hover:text-[#2f6f95]" href="/login">
-                    Sign in
-                  </Link>
-                </li>
+                <li><Link className="hover:text-[#2f6f95]" href="/role-selection">Role entry</Link></li>
               </ul>
             </div>
             <div className="col-span-2 sm:col-span-1">
-              <h2 className="text-sm font-semibold text-[#163044]">
-                Principles
-              </h2>
+              <h2 className="text-sm font-semibold text-[#163044]">Principles</h2>
               <ul className="mt-4 space-y-2.5 text-sm text-[#587181]">
                 <li>Scheme-bound marks</li>
                 <li>Human final decision</li>
