@@ -1,0 +1,200 @@
+#include "esp_camera.h"
+#include <WiFi.h>
+
+// ================= BOARD =================
+#define BOARD_ESP32S3_CAM_GENERIC
+
+// ================= WIFI ==================
+const char* WIFI_SSID = "Devraj's S20 FE";
+const char* WIFI_PASS = "alff7564";
+
+// ================= PINS ==================
+#if defined(BOARD_ESP32S3_CAM_GENERIC)
+  #define PWDN_GPIO_NUM     -1
+  #define RESET_GPIO_NUM    -1
+  #define XCLK_GPIO_NUM     15
+  #define SIOD_GPIO_NUM     4
+  #define SIOC_GPIO_NUM     5
+  #define Y9_GPIO_NUM       16
+  #define Y8_GPIO_NUM       17
+  #define Y7_GPIO_NUM       18
+  #define Y6_GPIO_NUM       12
+  #define Y5_GPIO_NUM       10
+  #define Y4_GPIO_NUM       8
+  #define Y3_GPIO_NUM       9
+  #define Y2_GPIO_NUM       11
+  #define VSYNC_GPIO_NUM    6
+  #define HREF_GPIO_NUM     7
+  #define PCLK_GPIO_NUM     13
+#endif
+
+WiFiServer server(80);
+
+static const char* STREAM_BOUNDARY = "\r\n--frame\r\n";
+static const char* STREAM_PART     = "Content-Type: image/jpeg\r\nContent-Length: %u\r\n\r\n";
+
+// ================= CAMERA INIT =================
+bool initCamera() {
+  camera_config_t config;
+
+  config.ledc_channel = LEDC_CHANNEL_0;
+  config.ledc_timer   = LEDC_TIMER_0;
+
+  config.pin_d0 = Y2_GPIO_NUM;
+  config.pin_d1 = Y3_GPIO_NUM;
+  config.pin_d2 = Y4_GPIO_NUM;
+  config.pin_d3 = Y5_GPIO_NUM;
+  config.pin_d4 = Y6_GPIO_NUM;
+  config.pin_d5 = Y7_GPIO_NUM;
+  config.pin_d6 = Y8_GPIO_NUM;
+  config.pin_d7 = Y9_GPIO_NUM;
+
+  config.pin_xclk  = XCLK_GPIO_NUM;
+  config.pin_pclk  = PCLK_GPIO_NUM;
+  config.pin_vsync = VSYNC_GPIO_NUM;
+  config.pin_href  = HREF_GPIO_NUM;
+
+  config.pin_sscb_sda = SIOD_GPIO_NUM;
+  config.pin_sscb_scl = SIOC_GPIO_NUM;
+
+  config.pin_pwdn  = PWDN_GPIO_NUM;
+  config.pin_reset = RESET_GPIO_NUM;
+
+  config.xclk_freq_hz = 10000000;
+  config.pixel_format = PIXFORMAT_JPEG;
+  config.grab_mode    = CAMERA_GRAB_LATEST;
+
+  if (psramFound()) {
+    config.frame_size   = FRAMESIZE_VGA;
+    config.jpeg_quality = 12;
+    config.fb_count     = 2;
+    config.fb_location  = CAMERA_FB_IN_PSRAM;
+  } else {
+    config.frame_size   = FRAMESIZE_QVGA;
+    config.jpeg_quality = 15;
+    config.fb_count     = 1;
+    config.fb_location  = CAMERA_FB_IN_DRAM;
+  }
+
+  esp_err_t err = esp_camera_init(&config);
+  if (err != ESP_OK) {
+    Serial.printf("Camera init FAILED: 0x%x\n", err);
+    return false;
+  }
+
+  sensor_t *s = esp_camera_sensor_get();
+  if (s && s->id.PID == OV3660_PID) {
+    s->set_vflip(s, 1);
+    s->set_brightness(s, 1);
+    s->set_saturation(s, -2);
+  }
+
+  return true;
+}
+
+// ================= WIFI CONNECT =================
+void connectWiFi() {
+  WiFi.begin(WIFI_SSID, WIFI_PASS);
+  Serial.print("Connecting to WiFi");
+
+  int retries = 0;
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(300);
+    Serial.print(".");
+    retries++;
+
+    if (retries > 50) { // ~15 sec timeout
+      Serial.println("\nWiFi failed. Restarting...");
+      ESP.restart();
+    }
+  }
+
+  Serial.println("\nConnected!");
+  Serial.print("IP: ");
+  Serial.println(WiFi.localIP());
+}
+
+// ================= STREAM HANDLER =================
+void streamClient(WiFiClient& client) {
+  client.println("HTTP/1.1 200 OK");
+  client.println("Content-Type: multipart/x-mixed-replace; boundary=frame");
+  client.println();
+
+  unsigned long lastFrame = 0;
+
+  while (client.connected()) {
+
+    // FPS control (~10-15 FPS)
+    if (millis() - lastFrame < 70) continue;
+    lastFrame = millis();
+
+    camera_fb_t* fb = esp_camera_fb_get();
+    if (!fb) {
+      Serial.println("Frame capture failed, retrying...");
+      continue;
+    }
+
+    client.print(STREAM_BOUNDARY);
+
+    char buf[64];
+    snprintf(buf, sizeof(buf), STREAM_PART, fb->len);
+    client.print(buf);
+
+    client.write(fb->buf, fb->len);
+    esp_camera_fb_return(fb);
+
+    if (!client.connected()) break;
+  }
+
+  client.stop();
+}
+
+// ================= REQUEST HANDLER =================
+void handleClient(WiFiClient& client) {
+  String req = client.readStringUntil('\r');
+  client.readStringUntil('\n');
+
+  while (client.available()) client.read();
+
+  if (req.indexOf("/stream") >= 0) {
+    streamClient(client);
+    return;
+  }
+
+  String html = "<html><body style='text-align:center'>"
+                "<h2>ESP32-S3-CAM</h2>"
+                "<img src='/stream' width='90%'>"
+                "</body></html>";
+
+  client.println("HTTP/1.1 200 OK");
+  client.println("Content-Type: text/html");
+  client.println("Content-Length: " + String(html.length()));
+  client.println();
+  client.print(html);
+
+  client.stop();
+}
+
+// ================= SETUP =================
+void setup() {
+  Serial.begin(115200);
+  delay(1000);
+
+  if (!initCamera()) {
+    Serial.println("Retrying camera init...");
+    delay(2000);
+    ESP.restart();
+  }
+
+  connectWiFi();
+  server.begin();
+}
+
+// ================= LOOP =================
+void loop() {
+  WiFiClient client = server.available();
+
+  if (client) {
+    handleClient(client);
+  }
+}
